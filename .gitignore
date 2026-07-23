@@ -1,0 +1,18 @@
+# Dependencies & build artifacts
+node_modules/
+
+# Data processing artifacts (not needed in deployment)
+hnd_json/
+hnd_json.zip
+process_data.py
+*.pyc
+__pycache__/
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.vscode/
+.idea/

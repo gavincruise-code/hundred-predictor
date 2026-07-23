@@ -1,0 +1,14 @@
+{
+  "name": "hundred-predictor",
+  "version": "1.0.0",
+  "description": "Predict final innings scores in The Hundred cricket competition using historical match data",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": ["cricket", "the-hundred", "score-predictor", "sports-analytics"],
+  "license": "MIT"
+}
