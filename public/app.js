@@ -51,6 +51,9 @@ function cacheElements() {
   els.statMedian = $('#stat-median');
   els.statInnings = $('#stat-innings');
   els.statRange = $('#stat-date-range');
+  els.milestone25 = $('#milestone-25');
+  els.milestone50 = $('#milestone-50');
+  els.milestone75 = $('#milestone-75');
 }
 
 // ============================================================
@@ -458,11 +461,28 @@ function updatePrediction() {
     } else {
       if (els.requiredRR) els.requiredRR.textContent = '—';
     }
+
+    // Milestones
+    const curve = getProjectedCurve(state.balls, state.wickets, state.runs);
+    [25, 50, 75].forEach(mBalls => {
+      const el = els[`milestone${mBalls}`];
+      if (!el) return;
+      if (state.balls >= mBalls) {
+        el.textContent = '—';
+      } else {
+        const point = curve.find(p => p.ball === mBalls);
+        el.textContent = point ? point.runs : '—';
+      }
+    });
+
   } else {
     els.predictedScore.textContent = '—';
     els.rangeText.textContent = 'insufficient data';
     els.confDot.className = 'confidence__dot confidence__dot--low';
     els.confText.textContent = 'No data for this state';
+    if (els.milestone25) els.milestone25.textContent = '—';
+    if (els.milestone50) els.milestone50.textContent = '—';
+    if (els.milestone75) els.milestone75.textContent = '—';
   }
 
   renderChart();
