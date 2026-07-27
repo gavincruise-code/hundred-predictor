@@ -56,8 +56,8 @@ const server = http.createServer((req, res) => {
       return;
     }
 
-    // Cache static assets for 1 hour, JSON for 5 minutes
-    const cacheControl = ext === '.json' ? 'public, max-age=300' : 'public, max-age=3600';
+    // Disable caching for development
+    const cacheControl = 'no-cache, no-store, must-revalidate';
 
     res.writeHead(200, {
       'Content-Type': contentType,
