@@ -10,10 +10,11 @@
 // ============================================================
 const state = {
   gender: 'mens',   // 'mens' | 'womens'
+  venue: 'overall',
   balls: 0,
   wickets: 0,
   runs: 0,
-  model: null,      // Currently active model
+  model: null,      // Currently active gender's full data (contains overall + venues)
   modelMens: null,
   modelWomens: null,
   animatingScore: null,  // For the count-up animation
@@ -31,9 +32,16 @@ function cacheElements() {
   els.runsSlider = $('#runs-slider');
   els.wicketsSlider = $('#wickets-slider');
   els.ballsSlider = $('#balls-slider');
+  els.runsMinus = $('#runs-minus');
+  els.runsPlus = $('#runs-plus');
+  els.wicketsMinus = $('#wickets-minus');
+  els.wicketsPlus = $('#wickets-plus');
+  els.ballsMinus = $('#balls-minus');
+  els.ballsPlus = $('#balls-plus');
   els.runsValue = $('#runs-value');
   els.wicketsValue = $('#wickets-value');
   els.ballsValue = $('#balls-value');
+  els.venueSelect = $('#venue-select');
   els.predictedScore = $('#predicted-score');
   els.rangeText = $('#range-text');
   els.confDot = $('#confidence-dot');
@@ -54,6 +62,9 @@ function cacheElements() {
   els.milestone25 = $('#milestone-25');
   els.milestone50 = $('#milestone-50');
   els.milestone75 = $('#milestone-75');
+  els.primaryPredictionLabel = $('#primary-prediction-label');
+  els.secondaryPredictionContainer = $('#secondary-prediction-container');
+  els.secondaryPredictedScore = $('#secondary-predicted-score');
 }
 
 // ============================================================
@@ -68,6 +79,7 @@ async function loadModels() {
     state.modelMens = await mensResp.json();
     state.modelWomens = await womensResp.json();
     state.model = state.modelMens;
+    populateVenueSelect();
     updateStatsBar();
     updatePrediction();
   } catch (err) {
@@ -76,10 +88,31 @@ async function loadModels() {
   }
 }
 
+function populateVenueSelect() {
+  if (!state.model || !state.model.venues) return;
+  
+  els.venueSelect.innerHTML = '<option value="overall">All Grounds / Overall</option>';
+  
+  const venues = Object.keys(state.model.venues).sort();
+  venues.forEach(v => {
+    const opt = document.createElement('option');
+    opt.value = v;
+    opt.textContent = v;
+    els.venueSelect.appendChild(opt);
+  });
+  
+  if (state.model.venues[state.venue]) {
+    els.venueSelect.value = state.venue;
+  } else {
+    state.venue = 'overall';
+    els.venueSelect.value = 'overall';
+  }
+}
+
 // ============================================================
 // Prediction Engine
 // ============================================================
-function predict(balls, wickets, currentRuns) {
+function predict(balls, wickets, currentRuns, venue = null) {
   if (!state.model) return null;
 
   // Innings is complete — no more scoring possible
@@ -94,7 +127,9 @@ function predict(balls, wickets, currentRuns) {
     };
   }
 
-  const m = state.model;
+  const m = venue && venue !== 'overall' ? state.model.venues[venue] : state.model.overall;
+  if (!m) return null;
+  
   const bKey = String(Math.min(balls, 100));
   const wKey = String(Math.min(wickets, 10));
 
@@ -131,28 +166,31 @@ function predict(balls, wickets, currentRuns) {
 // ============================================================
 // Projected curve data
 // ============================================================
-function getProjectedCurve(balls, wickets, currentRuns) {
+function getProjectedCurve(balls, wickets, currentRuns, venue = null) {
   const points = [];
   // Add current state
   points.push({ ball: balls, runs: currentRuns });
 
   if (!state.model) return points;
+  
+  const m = venue && venue !== 'overall' ? state.model.venues[venue] : state.model.overall;
+  if (!m) return points;
 
   // Project forward from current state
   for (let b = balls + 1; b <= 100; b++) {
-    const result = predict(b, wickets, currentRuns);
+    const result = predict(b, wickets, currentRuns, venue);
     if (result) {
       // The predicted final is the same from any intermediate point,
       // so we need to interpolate the path.
       // Use average cumulative runs as a shape guide.
-      const avgAtB = state.model.avg_cumulative_runs?.[String(b)];
-      const avgAtCurrent = state.model.avg_cumulative_runs?.[String(balls)] || 0;
-      const avgAt100 = state.model.avg_cumulative_runs?.["100"];
+      const avgAtB = m.avg_cumulative_runs?.[String(b)];
+      const avgAtCurrent = m.avg_cumulative_runs?.[String(balls)] || 0;
+      const avgAt100 = m.avg_cumulative_runs?.["100"];
 
       if (avgAtB !== null && avgAtCurrent !== null && avgAt100 !== null && avgAt100 > avgAtCurrent) {
         // Proportion of remaining runs expected by ball b
         const proportion = (avgAtB - avgAtCurrent) / (avgAt100 - avgAtCurrent);
-        const finalPrediction = predict(balls, wickets, currentRuns);
+        const finalPrediction = predict(balls, wickets, currentRuns, venue);
         if (finalPrediction) {
           const additionalByB = finalPrediction.additionalRuns * Math.min(1, proportion);
           points.push({ ball: b, runs: Math.round(currentRuns + additionalByB) });
@@ -164,18 +202,21 @@ function getProjectedCurve(balls, wickets, currentRuns) {
   return points;
 }
 
-function getHistoricalBand(balls, wickets) {
+function getHistoricalBand(balls, wickets, venue = null) {
   const low = [];
   const high = [];
 
   if (!state.model) return { low, high };
+  
+  const m = venue && venue !== 'overall' ? state.model.venues[venue] : state.model.overall;
+  if (!m) return { low, high };
 
   for (let b = 0; b <= 100; b++) {
     const bKey = String(b);
     const wKey = String(Math.min(wickets, 10));
-    const avgRuns = state.model.avg_cumulative_runs?.[bKey];
-    const p25extra = state.model.additional_runs_p25?.[bKey]?.[wKey];
-    const p75extra = state.model.additional_runs_p75?.[bKey]?.[wKey];
+    const avgRuns = m.avg_cumulative_runs?.[bKey];
+    const p25extra = m.additional_runs_p25?.[bKey]?.[wKey];
+    const p75extra = m.additional_runs_p75?.[bKey]?.[wKey];
 
     if (avgRuns !== null) {
       // Use avg cumulative as the baseline for the band
@@ -226,7 +267,7 @@ function renderChart() {
   const plotH = h - padding.top - padding.bottom;
 
   // Determine Y axis max
-  const finalPred = predict(state.balls, state.wickets, state.runs);
+  const finalPred = predict(state.balls, state.wickets, state.runs, state.venue);
   let yMax = Math.max(180, state.runs + 20);
   if (finalPred) yMax = Math.max(yMax, finalPred.high + 20);
   yMax = Math.ceil(yMax / 20) * 20;
@@ -284,8 +325,9 @@ function renderChart() {
     ctx.lineWidth = 1.5;
     ctx.setLineDash([4, 4]);
     let started = false;
+    const m = state.venue !== 'overall' ? state.model.venues[state.venue] : state.model.overall;
     for (let b = 0; b <= 100; b++) {
-      const avg = state.model.avg_cumulative_runs?.[String(b)];
+      const avg = m.avg_cumulative_runs?.[String(b)];
       if (avg !== null && avg !== undefined) {
         if (!started) {
           ctx.moveTo(xScale(b), yScale(avg));
@@ -300,7 +342,7 @@ function renderChart() {
   }
 
   // Projected curve from current state
-  const curve = getProjectedCurve(state.balls, state.wickets, state.runs);
+  const curve = getProjectedCurve(state.balls, state.wickets, state.runs, state.venue);
   if (curve.length > 1) {
     // Confidence band (semi-transparent)
     if (finalPred) {
@@ -433,7 +475,8 @@ function renderChart() {
 // Update UI
 // ============================================================
 function updatePrediction() {
-  const result = predict(state.balls, state.wickets, state.runs);
+  const result = predict(state.balls, state.wickets, state.runs, state.venue);
+  const overallResult = state.venue !== 'overall' ? predict(state.balls, state.wickets, state.runs, 'overall') : null;
 
   // Match state display
   if (els.matchRuns) els.matchRuns.textContent = state.runs;
@@ -462,8 +505,18 @@ function updatePrediction() {
       if (els.requiredRR) els.requiredRR.textContent = '—';
     }
 
+    // Secondary (Overall) Prediction Display
+    if (overallResult && state.venue !== 'overall') {
+      els.primaryPredictionLabel.textContent = `Expected Final Score (${state.venue})`;
+      els.secondaryPredictionContainer.style.display = 'inline-flex';
+      els.secondaryPredictedScore.textContent = overallResult.predicted;
+    } else {
+      els.primaryPredictionLabel.textContent = 'Predicted Final Score';
+      els.secondaryPredictionContainer.style.display = 'none';
+    }
+
     // Milestones
-    const curve = getProjectedCurve(state.balls, state.wickets, state.runs);
+    const curve = getProjectedCurve(state.balls, state.wickets, state.runs, state.venue);
     [25, 50, 75].forEach(mBalls => {
       const el = els[`milestone${mBalls}`];
       if (!el) return;
@@ -480,6 +533,7 @@ function updatePrediction() {
     els.rangeText.textContent = 'insufficient data';
     els.confDot.className = 'confidence__dot confidence__dot--low';
     els.confText.textContent = 'No data for this state';
+    els.secondaryPredictionContainer.style.display = 'none';
     if (els.milestone25) els.milestone25.textContent = '—';
     if (els.milestone50) els.milestone50.textContent = '—';
     if (els.milestone75) els.milestone75.textContent = '—';
@@ -531,21 +585,53 @@ function updateSliderFill(slider) {
   slider.style.setProperty('--fill', pct + '%');
 }
 
+// Stats bar
+// ============================================================
 function updateStatsBar() {
   if (!state.model) return;
-  const s = state.model.summary;
-  const m = state.model.meta;
-
-  if (els.statAvg) els.statAvg.textContent = s.avg_score;
-  if (els.statMedian) els.statMedian.textContent = s.median_score;
-  if (els.statInnings) els.statInnings.textContent = m.innings_count;
-  if (els.statRange) els.statRange.textContent = m.date_range;
+  const m = state.venue && state.venue !== 'overall' ? state.model.venues[state.venue] : state.model.overall;
+  if (!m) return;
+  
+  els.statAvg.textContent = m.summary.avg_score.toFixed(1);
+  els.statMedian.textContent = m.summary.median_score.toFixed(1);
+  els.statInnings.textContent = m.meta.innings_count;
+  els.statRange.textContent = state.model.overall.meta.date_range; // Use overall dates
 }
 
 // ============================================================
 // Event Handlers
 // ============================================================
 function setupListeners() {
+  // Venue toggle
+  els.venueSelect.addEventListener('change', (e) => {
+    state.venue = e.target.value;
+    updateStatsBar();
+    updatePrediction();
+  });
+
+  // Stepper helper
+  const setupStepper = (minusBtn, plusBtn, sliderElement, stateKey) => {
+    const update = (delta) => {
+      let val = parseInt(sliderElement.value) + delta;
+      const min = parseInt(sliderElement.min) || 0;
+      const max = parseInt(sliderElement.max) || 100;
+      val = Math.max(min, Math.min(max, val));
+      
+      sliderElement.value = val;
+      state[stateKey] = val;
+      els[`${stateKey}Value`].textContent = val;
+      updateSliderFill(sliderElement);
+      updatePrediction();
+    };
+    
+    minusBtn.addEventListener('click', () => update(-1));
+    plusBtn.addEventListener('click', () => update(1));
+  };
+
+  setupStepper(els.runsMinus, els.runsPlus, els.runsSlider, 'runs');
+  setupStepper(els.wicketsMinus, els.wicketsPlus, els.wicketsSlider, 'wickets');
+  setupStepper(els.ballsMinus, els.ballsPlus, els.ballsSlider, 'balls');
+
   // Sliders
   els.runsSlider.addEventListener('input', (e) => {
     state.runs = parseInt(e.target.value);
