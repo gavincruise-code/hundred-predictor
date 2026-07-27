@@ -62,6 +62,12 @@ function cacheElements() {
   els.milestone25 = $('#milestone-25');
   els.milestone50 = $('#milestone-50');
   els.milestone75 = $('#milestone-75');
+  els.milestoneSecondary25 = $('#milestone-secondary-25');
+  els.milestoneSecondary50 = $('#milestone-secondary-50');
+  els.milestoneSecondary75 = $('#milestone-secondary-75');
+  els.milestoneOverall25 = $('#milestone-overall-25');
+  els.milestoneOverall50 = $('#milestone-overall-50');
+  els.milestoneOverall75 = $('#milestone-overall-75');
   els.primaryPredictionLabel = $('#primary-prediction-label');
   els.secondaryPredictionContainer = $('#secondary-prediction-container');
   els.secondaryPredictedScore = $('#secondary-predicted-score');
@@ -517,14 +523,29 @@ function updatePrediction() {
 
     // Milestones
     const curve = getProjectedCurve(state.balls, state.wickets, state.runs, state.venue);
+    const overallCurve = state.venue !== 'overall' ? getProjectedCurve(state.balls, state.wickets, state.runs, 'overall') : null;
+    
     [25, 50, 75].forEach(mBalls => {
       const el = els[`milestone${mBalls}`];
+      const secCont = els[`milestoneSecondary${mBalls}`];
+      const secVal = els[`milestoneOverall${mBalls}`];
       if (!el) return;
       if (state.balls >= mBalls) {
         el.textContent = '—';
+        if (secCont) secCont.style.display = 'none';
       } else {
         const point = curve.find(p => p.ball === mBalls);
         el.textContent = point ? point.runs : '—';
+        
+        if (overallCurve && state.venue !== 'overall') {
+          const overallPoint = overallCurve.find(p => p.ball === mBalls);
+          if (secCont && secVal) {
+            secCont.style.display = 'block';
+            secVal.textContent = overallPoint ? overallPoint.runs : '—';
+          }
+        } else {
+          if (secCont) secCont.style.display = 'none';
+        }
       }
     });
 
@@ -534,9 +555,10 @@ function updatePrediction() {
     els.confDot.className = 'confidence__dot confidence__dot--low';
     els.confText.textContent = 'No data for this state';
     els.secondaryPredictionContainer.style.display = 'none';
-    if (els.milestone25) els.milestone25.textContent = '—';
-    if (els.milestone50) els.milestone50.textContent = '—';
-    if (els.milestone75) els.milestone75.textContent = '—';
+    [25, 50, 75].forEach(mBalls => {
+      if (els[`milestone${mBalls}`]) els[`milestone${mBalls}`].textContent = '—';
+      if (els[`milestoneSecondary${mBalls}`]) els[`milestoneSecondary${mBalls}`].style.display = 'none';
+    });
   }
 
   renderChart();
