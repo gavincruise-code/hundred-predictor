@@ -22,12 +22,24 @@
       <p class="app-header__subtitle">Forecast final innings totals using data from every match in the competition's history</p>
     </header>
 
-    <!-- Gender Toggle -->
-    <div class="gender-toggle animate-in">
-      <div class="gender-toggle__track">
-        <div class="gender-toggle__slider" id="gender-slider"></div>
-        <button class="gender-toggle__btn active" id="gender-mens">Men's</button>
-        <button class="gender-toggle__btn" id="gender-womens">Women's</button>
+    <!-- Toggles -->
+    <div style="display: flex; flex-direction: column; gap: 0.75rem; align-items: center; margin-bottom: 2.5rem;">
+      <!-- Gender Toggle -->
+      <div class="gender-toggle animate-in" style="margin-bottom: 0;">
+        <div class="gender-toggle__track">
+          <div class="gender-toggle__slider" id="gender-slider"></div>
+          <button class="gender-toggle__btn active" id="gender-mens">Men's</button>
+          <button class="gender-toggle__btn" id="gender-womens">Women's</button>
+        </div>
+      </div>
+
+      <!-- Innings Toggle -->
+      <div class="gender-toggle animate-in" style="margin-bottom: 0;">
+        <div class="gender-toggle__track">
+          <div class="gender-toggle__slider" id="innings-slider"></div>
+          <button class="gender-toggle__btn active" id="innings-1">Setting Target (1st)</button>
+          <button class="gender-toggle__btn" id="innings-2">Chasing (2nd)</button>
+        </div>
       </div>
     </div>
 

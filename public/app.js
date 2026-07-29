@@ -10,6 +10,7 @@
 // ============================================================
 const state = {
   gender: 'mens',   // 'mens' | 'womens'
+  innings: '1',     // '1' | '2'
   venue: 'overall',
   balls: 0,
   wickets: 0,
@@ -55,6 +56,9 @@ function cacheElements() {
   els.genderBtnMens = $('#gender-mens');
   els.genderBtnWomens = $('#gender-womens');
   els.genderSlider = $('#gender-slider');
+  els.inningsBtn1 = $('#innings-1');
+  els.inningsBtn2 = $('#innings-2');
+  els.inningsSlider = $('#innings-slider');
   els.statAvg = $('#stat-avg');
   els.statMedian = $('#stat-median');
   els.statInnings = $('#stat-innings');
@@ -84,14 +88,19 @@ async function loadModels() {
     ]);
     state.modelMens = await mensResp.json();
     state.modelWomens = await womensResp.json();
-    state.model = state.modelMens;
-    populateVenueSelect();
-    updateStatsBar();
-    updatePrediction();
+    updateActiveModel();
   } catch (err) {
     console.error('Failed to load models:', err);
     els.predictedScore.textContent = '—';
   }
+}
+
+function updateActiveModel() {
+  const genderModel = state.gender === 'mens' ? state.modelMens : state.modelWomens;
+  state.model = genderModel[state.innings];
+  populateVenueSelect();
+  updateStatsBar();
+  updatePrediction();
 }
 
 function populateVenueSelect() {
@@ -679,22 +688,35 @@ function setupListeners() {
   // Gender toggle
   els.genderBtnMens.addEventListener('click', () => {
     state.gender = 'mens';
-    state.model = state.modelMens;
     els.genderBtnMens.classList.add('active');
     els.genderBtnWomens.classList.remove('active');
     els.genderSlider.classList.remove('right');
-    updateStatsBar();
-    updatePrediction();
+    updateActiveModel();
   });
 
   els.genderBtnWomens.addEventListener('click', () => {
     state.gender = 'womens';
-    state.model = state.modelWomens;
     els.genderBtnWomens.classList.add('active');
     els.genderBtnMens.classList.remove('active');
     els.genderSlider.classList.add('right');
-    updateStatsBar();
-    updatePrediction();
+    updateActiveModel();
+  });
+
+  // Innings toggle
+  els.inningsBtn1.addEventListener('click', () => {
+    state.innings = '1';
+    els.inningsBtn1.classList.add('active');
+    els.inningsBtn2.classList.remove('active');
+    els.inningsSlider.classList.remove('right');
+    updateActiveModel();
+  });
+
+  els.inningsBtn2.addEventListener('click', () => {
+    state.innings = '2';
+    els.inningsBtn2.classList.add('active');
+    els.inningsBtn1.classList.remove('active');
+    els.inningsSlider.classList.add('right');
+    updateActiveModel();
   });
 
   // Initialize slider fills
