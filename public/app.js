@@ -788,21 +788,22 @@ function setupListeners() {
       const liveData = await window.LiveAPI.fetchLiveMatchState(url);
       els.liveIndicator.style.animation = 'pulse 1.5s infinite'; // Normal pulse
       
+      // Always update innings and model first
+      const prevInnings = state.innings;
       if (liveData.innings) {
         state.innings = liveData.innings;
       }
-      if (liveData.venue && liveData.venue !== state.venue) {
-        state.venue = liveData.venue;
-        els.venueSelect.value = liveData.venue;
+      
+      // If innings changed, update the model reference
+      if (state.innings !== prevInnings) {
+        const genderModel = state.gender === 'mens' ? state.modelMens : state.modelWomens;
+        state.model = genderModel[state.innings];
       }
-      if (liveData.battingTeam && liveData.battingTeam !== state.battingTeam) {
-        state.battingTeam = liveData.battingTeam;
-        els.battingTeamSelect.value = liveData.battingTeam;
-      }
-      if (liveData.bowlingTeam && liveData.bowlingTeam !== state.bowlingTeam) {
-        state.bowlingTeam = liveData.bowlingTeam;
-        els.bowlingTeamSelect.value = liveData.bowlingTeam;
-      }
+
+      // Always store the detected teams/venue in state
+      if (liveData.venue) state.venue = liveData.venue;
+      if (liveData.battingTeam) state.battingTeam = liveData.battingTeam;
+      if (liveData.bowlingTeam) state.bowlingTeam = liveData.bowlingTeam;
       
       if (state.gender === 'mens') {
         els.genderBtnMens.classList.add('active');
@@ -825,11 +826,16 @@ function setupListeners() {
       }
       
       if (state.model) {
+        // Rebuild the dropdown options (this clears any visual selection)
         populateVenueSelect();
         populateTeamSelects();
-        els.venueSelect.value = state.venue;
-        els.battingTeamSelect.value = state.battingTeam;
-        els.bowlingTeamSelect.value = state.bowlingTeam;
+        
+        // Now force the dropdowns to the live-detected values
+        // (must be done AFTER populateVenueSelect/populateTeamSelects
+        // since those rebuild innerHTML, resetting visual selection)
+        if (liveData.venue) els.venueSelect.value = liveData.venue;
+        if (liveData.battingTeam) els.battingTeamSelect.value = liveData.battingTeam;
+        if (liveData.bowlingTeam) els.bowlingTeamSelect.value = liveData.bowlingTeam;
         
         state.runs = liveData.runs;
         state.wickets = liveData.wickets;
