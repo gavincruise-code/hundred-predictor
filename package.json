@@ -9,6 +9,14 @@
   "engines": {
     "node": ">=18.0.0"
   },
-  "keywords": ["cricket", "the-hundred", "score-predictor", "sports-analytics"],
-  "license": "MIT"
+  "keywords": [
+    "cricket",
+    "the-hundred",
+    "score-predictor",
+    "sports-analytics"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "puppeteer": "^25.5.0"
+  }
 }

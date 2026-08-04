@@ -65,6 +65,8 @@ function cacheElements() {
   els.statInnings = $('#stat-innings');
   els.liveSyncCheckbox = $('#live-sync-checkbox');
   els.liveIndicator = $('#live-indicator');
+  els.cricinfoUrlContainer = $('#cricinfo-url-container');
+  els.cricinfoUrlInput = $('#cricinfo-url');
   els.inputGroups = document.querySelectorAll('#inputs-card .input-group');
   els.genderToggleGroups = document.querySelectorAll('.gender-toggle');
   els.statRange = $('#stat-date-range');
@@ -730,11 +732,23 @@ function setupListeners() {
   async function fetchAndApplyLiveSync() {
     if (!state.liveSyncEnabled || !window.LiveAPI) return;
     
+    const url = els.cricinfoUrlInput.value.trim();
+    if (!url) {
+      els.predictedScore.textContent = 'Paste URL...';
+      return;
+    }
+
     try {
-      const liveData = await window.LiveAPI.fetchLiveMatchState();
+      els.liveIndicator.style.animation = 'pulse 0.5s infinite'; // Fast pulse while fetching
+      const liveData = await window.LiveAPI.fetchLiveMatchState(url);
+      els.liveIndicator.style.animation = 'pulse 1.5s infinite'; // Normal pulse
       
-      state.gender = liveData.gender;
-      state.innings = liveData.innings;
+      // We don't overwrite gender/venue because the scraper isn't extracting them reliably yet
+      // state.gender = liveData.gender;
+      
+      if (liveData.innings) {
+        state.innings = liveData.innings;
+      }
       
       if (state.gender === 'mens') {
         els.genderBtnMens.classList.add('active');
@@ -759,13 +773,6 @@ function setupListeners() {
       const genderModel = state.gender === 'mens' ? state.modelMens : state.modelWomens;
       state.model = genderModel[state.innings];
       populateVenueSelect();
-      
-      // Ensure venue exists in this model, otherwise fallback
-      if (liveData.venue && state.model.venues && state.model.venues[liveData.venue]) {
-        state.venue = liveData.venue;
-      } else {
-        state.venue = 'overall';
-      }
       els.venueSelect.value = state.venue;
       
       state.runs = liveData.runs;
@@ -784,6 +791,8 @@ function setupListeners() {
       updatePrediction();
     } catch (err) {
       console.error('Live Sync Error:', err);
+      els.predictedScore.textContent = 'Error';
+      els.liveIndicator.style.animation = 'pulse 1.5s infinite';
     }
   }
 
@@ -795,16 +804,23 @@ function setupListeners() {
     
     if (enabled) {
       els.liveIndicator.style.display = 'block';
+      els.cricinfoUrlContainer.style.display = 'block';
       fetchAndApplyLiveSync();
       liveSyncInterval = setInterval(fetchAndApplyLiveSync, 15000);
     } else {
       els.liveIndicator.style.display = 'none';
+      els.cricinfoUrlContainer.style.display = 'none';
       if (liveSyncInterval) clearInterval(liveSyncInterval);
+      updatePrediction(); // Restore prediction text
     }
   }
 
   els.liveSyncCheckbox.addEventListener('change', (e) => {
     toggleLiveSync(e.target.checked);
+  });
+
+  els.cricinfoUrlInput.addEventListener('change', () => {
+    if (state.liveSyncEnabled) fetchAndApplyLiveSync();
   });
 
   // Initialize slider fills

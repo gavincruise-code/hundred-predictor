@@ -2,56 +2,39 @@
  * API Adapter for Live Cricket Scores
  * 
  * This module is responsible for fetching live match data.
- * Currently uses a mock implementation to simulate a live match.
  */
-
-let mockBalls = 0;
-let mockRuns = 0;
-let mockWickets = 0;
 
 /**
- * Fetches the current live match state.
+ * Fetches the current live match state by calling our backend scraper.
+ * @param {string} cricinfoUrl The ESPNcricinfo match URL
  * @returns {Promise<Object>} The match state containing runs, wickets, balls, etc.
  */
-async function fetchLiveMatchState() {
-  // TODO: Replace with actual API call (e.g. fetch('https://api.provider.com/match/xyz'))
-  
-  // Simulate network delay
-  await new Promise(resolve => setTimeout(resolve, 500));
-
-  // Mock logic: progress the match state slightly each time it's called
-  if (mockBalls < 100 && mockWickets < 10) {
-    mockBalls += Math.floor(Math.random() * 3) + 1; // Advance 1-3 balls
-    mockRuns += Math.floor(Math.random() * 8);      // Score 0-7 runs
-    
-    // 5% chance of a wicket per ball chunk
-    if (Math.random() < 0.05) {
-      mockWickets += 1;
-    }
+async function fetchLiveMatchState(cricinfoUrl) {
+  if (!cricinfoUrl) {
+    throw new Error("Please provide a valid ESPNcricinfo match URL");
   }
 
-  // Cap values
-  mockBalls = Math.min(mockBalls, 100);
-  mockWickets = Math.min(mockWickets, 10);
-  mockRuns = Math.min(mockRuns, 250);
+  const response = await fetch('/api/live-match?url=' + encodeURIComponent(cricinfoUrl));
+  
+  if (!response.ok) {
+    let errMsg = `Error ${response.status}`;
+    try {
+      const errData = await response.json();
+      if (errData.error) errMsg = errData.error;
+    } catch (e) {}
+    throw new Error(errMsg);
+  }
+
+  const data = await response.json();
 
   return {
-    runs: mockRuns,
-    wickets: mockWickets,
-    balls: mockBalls,
-    gender: 'mens',     // mock match gender
-    innings: '1',       // mock innings
-    venue: 'Lord\'s'    // mock venue
+    runs: data.runs || 0,
+    wickets: data.wickets || 0,
+    balls: data.balls || 0,
+    innings: data.innings || '1'
   };
 }
 
-// Attach to window so it can be used globally without modules
 window.LiveAPI = {
-  fetchLiveMatchState,
-  // Helper to reset the mock match
-  resetMock() {
-    mockBalls = 0;
-    mockRuns = 0;
-    mockWickets = 0;
-  }
+  fetchLiveMatchState
 };
