@@ -12,6 +12,8 @@ const state = {
   gender: 'mens',   // 'mens' | 'womens'
   innings: '1',     // '1' | '2'
   venue: 'overall',
+  battingTeam: 'overall',
+  bowlingTeam: 'overall',
   liveSyncEnabled: false,
   balls: 0,
   wickets: 0,
@@ -67,6 +69,8 @@ function cacheElements() {
   els.liveIndicator = $('#live-indicator');
   els.cricinfoUrlContainer = $('#cricinfo-url-container');
   els.cricinfoUrlInput = $('#cricinfo-url');
+  els.battingTeamSelect = $('#batting-team-select');
+  els.bowlingTeamSelect = $('#bowling-team-select');
   els.inputGroups = document.querySelectorAll('#inputs-card .input-group');
   els.genderToggleGroups = document.querySelectorAll('.gender-toggle');
   els.statRange = $('#stat-date-range');
@@ -114,21 +118,36 @@ function populateVenueSelect() {
   if (!state.model || !state.model.venues) return;
   
   els.venueSelect.innerHTML = '<option value="overall">All Grounds / Overall</option>';
-  
   const venues = Object.keys(state.model.venues).sort();
-  venues.forEach(v => {
-    const opt = document.createElement('option');
-    opt.value = v;
-    opt.textContent = v;
-    els.venueSelect.appendChild(opt);
-  });
+  const optionsHTML = venues.map(v => `<option value="${v}">${v}</option>`).join('');
+  els.venueSelect.innerHTML = '<option value="overall">All Grounds / Overall</option>' + optionsHTML;
   
-  if (state.model.venues[state.venue]) {
+  if (venues.includes(state.venue)) {
     els.venueSelect.value = state.venue;
   } else {
     state.venue = 'overall';
     els.venueSelect.value = 'overall';
   }
+}
+
+function populateTeamSelects() {
+  if (!state.model || !state.model.team_ratings) return;
+  const ratings = state.model.team_ratings;
+  const teams = Object.keys(ratings).filter(t => t !== 'unknown').sort();
+  
+  const optionsHTML = '<option value="overall">Unknown / Average</option>' + 
+    teams.map(t => {
+      return `<option value="${t}">${t}</option>`;
+    }).join('');
+    
+  els.battingTeamSelect.innerHTML = optionsHTML;
+  els.bowlingTeamSelect.innerHTML = optionsHTML;
+  
+  if (teams.includes(state.battingTeam)) els.battingTeamSelect.value = state.battingTeam;
+  else state.battingTeam = 'overall';
+  
+  if (teams.includes(state.bowlingTeam)) els.bowlingTeamSelect.value = state.bowlingTeam;
+  else state.bowlingTeam = 'overall';
 }
 
 // ============================================================
@@ -165,11 +184,24 @@ function predict(balls, wickets, currentRuns, venue = null) {
     return null;
   }
 
+  // Apply Team Strength Multipliers
+  let batMultiplier = 1.0;
+  let bowlMultiplier = 1.0;
+  
+  if (state.battingTeam !== 'overall' && state.model.team_ratings && state.model.team_ratings[state.battingTeam]) {
+    batMultiplier = state.model.team_ratings[state.battingTeam].batting;
+  }
+  if (state.bowlingTeam !== 'overall' && state.model.team_ratings && state.model.team_ratings[state.bowlingTeam]) {
+    bowlMultiplier = state.model.team_ratings[state.bowlingTeam].bowling;
+  }
+
+  const multiplier = batMultiplier * bowlMultiplier;
+
   // Blend median and mean for a more robust estimate
-  const additionalRuns = (median * 0.6 + mean * 0.4);
+  const additionalRuns = (median * 0.6 + mean * 0.4) * multiplier;
   const predicted = Math.round(currentRuns + additionalRuns);
-  const low = Math.round(currentRuns + (p25 ?? additionalRuns * 0.7));
-  const high = Math.round(currentRuns + (p75 ?? additionalRuns * 1.3));
+  const low = Math.round(currentRuns + ((p25 ?? additionalRuns * 0.7) * multiplier));
+  const high = Math.round(currentRuns + ((p75 ?? additionalRuns * 1.3) * multiplier));
 
   // Confidence based on sample count and how late in the innings
   let confidence;
@@ -222,32 +254,6 @@ function getProjectedCurve(balls, wickets, currentRuns, venue = null) {
   }
 
   return points;
-}
-
-function getHistoricalBand(balls, wickets, venue = null) {
-  const low = [];
-  const high = [];
-
-  if (!state.model) return { low, high };
-  
-  const m = venue && venue !== 'overall' ? state.model.venues[venue] : state.model.overall;
-  if (!m) return { low, high };
-
-  for (let b = 0; b <= 100; b++) {
-    const bKey = String(b);
-    const wKey = String(Math.min(wickets, 10));
-    const avgRuns = m.avg_cumulative_runs?.[bKey];
-    const p25extra = m.additional_runs_p25?.[bKey]?.[wKey];
-    const p75extra = m.additional_runs_p75?.[bKey]?.[wKey];
-
-    if (avgRuns !== null) {
-      // Use avg cumulative as the baseline for the band
-      low.push({ ball: b, runs: Math.max(0, Math.round(avgRuns - (avgRuns * 0.15))) });
-      high.push({ ball: b, runs: Math.round(avgRuns + (avgRuns * 0.15)) });
-    }
-  }
-
-  return { low, high };
 }
 
 // ============================================================
@@ -640,10 +646,20 @@ function updateStatsBar() {
 // Event Handlers
 // ============================================================
 function setupListeners() {
-  // Venue toggle
+  // Form logic (Venue, Teams, Sliders)
   els.venueSelect.addEventListener('change', (e) => {
     state.venue = e.target.value;
     updateStatsBar();
+    updatePrediction();
+  });
+
+  els.battingTeamSelect.addEventListener('change', (e) => {
+    state.battingTeam = e.target.value;
+    updatePrediction();
+  });
+
+  els.bowlingTeamSelect.addEventListener('change', (e) => {
+    state.bowlingTeam = e.target.value;
     updatePrediction();
   });
 
@@ -743,9 +759,6 @@ function setupListeners() {
       const liveData = await window.LiveAPI.fetchLiveMatchState(url);
       els.liveIndicator.style.animation = 'pulse 1.5s infinite'; // Normal pulse
       
-      // We don't overwrite gender/venue because the scraper isn't extracting them reliably yet
-      // state.gender = liveData.gender;
-      
       if (liveData.innings) {
         state.innings = liveData.innings;
       }
@@ -770,25 +783,28 @@ function setupListeners() {
         els.inningsSlider.classList.add('right');
       }
       
-      const genderModel = state.gender === 'mens' ? state.modelMens : state.modelWomens;
-      state.model = genderModel[state.innings];
-      populateVenueSelect();
-      els.venueSelect.value = state.venue;
-      
-      state.runs = liveData.runs;
-      state.wickets = liveData.wickets;
-      state.balls = liveData.balls;
-      
-      els.runsSlider.value = state.runs;
-      els.wicketsSlider.value = state.wickets;
-      els.ballsSlider.value = state.balls;
-      els.runsValue.textContent = state.runs;
-      els.wicketsValue.textContent = state.wickets;
-      els.ballsValue.textContent = state.balls;
-      
-      [els.runsSlider, els.wicketsSlider, els.ballsSlider].forEach(updateSliderFill);
-      updateStatsBar();
-      updatePrediction();
+      if (state.model) {
+        populateVenueSelect();
+        populateTeamSelects();
+        els.venueSelect.value = state.venue;
+        els.battingTeamSelect.value = state.battingTeam;
+        els.bowlingTeamSelect.value = state.bowlingTeam;
+        
+        state.runs = liveData.runs;
+        state.wickets = liveData.wickets;
+        state.balls = liveData.balls;
+        
+        els.runsSlider.value = state.runs;
+        els.wicketsSlider.value = state.wickets;
+        els.ballsSlider.value = state.balls;
+        els.runsValue.textContent = state.runs;
+        els.wicketsValue.textContent = state.wickets;
+        els.ballsValue.textContent = state.balls;
+        
+        [els.runsSlider, els.wicketsSlider, els.ballsSlider].forEach(updateSliderFill);
+        updateStatsBar();
+        updatePrediction();
+      }
     } catch (err) {
       console.error('Live Sync Error:', err);
       els.predictedScore.textContent = 'Error';
