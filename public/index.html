@@ -48,7 +48,17 @@
 
       <!-- Input Controls Card -->
       <div class="card animate-in" id="inputs-card">
-        <div class="card__title">Match State</div>
+        <div class="card__title" style="display: flex; justify-content: space-between; align-items: center;">
+          <span>Match State</span>
+          <div class="live-sync-wrapper">
+            <label class="toggle-switch">
+              <input type="checkbox" id="live-sync-checkbox">
+              <span class="toggle-switch__slider"></span>
+            </label>
+            <span class="live-sync-label">Live Sync</span>
+            <span class="live-indicator" id="live-indicator" style="display: none;"></span>
+          </div>
+        </div>
 
         <!-- Venue Selection -->
         <div class="input-group">
@@ -217,6 +227,7 @@
 
   </div>
 
+  <script src="api.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

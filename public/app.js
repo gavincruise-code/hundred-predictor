@@ -12,6 +12,7 @@ const state = {
   gender: 'mens',   // 'mens' | 'womens'
   innings: '1',     // '1' | '2'
   venue: 'overall',
+  liveSyncEnabled: false,
   balls: 0,
   wickets: 0,
   runs: 0,
@@ -62,6 +63,10 @@ function cacheElements() {
   els.statAvg = $('#stat-avg');
   els.statMedian = $('#stat-median');
   els.statInnings = $('#stat-innings');
+  els.liveSyncCheckbox = $('#live-sync-checkbox');
+  els.liveIndicator = $('#live-indicator');
+  els.inputGroups = document.querySelectorAll('#inputs-card .input-group');
+  els.genderToggleGroups = document.querySelectorAll('.gender-toggle');
   els.statRange = $('#stat-date-range');
   els.milestone25 = $('#milestone-25');
   els.milestone50 = $('#milestone-50');
@@ -717,6 +722,89 @@ function setupListeners() {
     els.inningsBtn1.classList.remove('active');
     els.inningsSlider.classList.add('right');
     updateActiveModel();
+  });
+
+  // Live Sync logic
+  let liveSyncInterval = null;
+
+  async function fetchAndApplyLiveSync() {
+    if (!state.liveSyncEnabled || !window.LiveAPI) return;
+    
+    try {
+      const liveData = await window.LiveAPI.fetchLiveMatchState();
+      
+      state.gender = liveData.gender;
+      state.innings = liveData.innings;
+      
+      if (state.gender === 'mens') {
+        els.genderBtnMens.classList.add('active');
+        els.genderBtnWomens.classList.remove('active');
+        els.genderSlider.classList.remove('right');
+      } else {
+        els.genderBtnWomens.classList.add('active');
+        els.genderBtnMens.classList.remove('active');
+        els.genderSlider.classList.add('right');
+      }
+
+      if (state.innings === '1') {
+        els.inningsBtn1.classList.add('active');
+        els.inningsBtn2.classList.remove('active');
+        els.inningsSlider.classList.remove('right');
+      } else {
+        els.inningsBtn2.classList.add('active');
+        els.inningsBtn1.classList.remove('active');
+        els.inningsSlider.classList.add('right');
+      }
+      
+      const genderModel = state.gender === 'mens' ? state.modelMens : state.modelWomens;
+      state.model = genderModel[state.innings];
+      populateVenueSelect();
+      
+      // Ensure venue exists in this model, otherwise fallback
+      if (liveData.venue && state.model.venues && state.model.venues[liveData.venue]) {
+        state.venue = liveData.venue;
+      } else {
+        state.venue = 'overall';
+      }
+      els.venueSelect.value = state.venue;
+      
+      state.runs = liveData.runs;
+      state.wickets = liveData.wickets;
+      state.balls = liveData.balls;
+      
+      els.runsSlider.value = state.runs;
+      els.wicketsSlider.value = state.wickets;
+      els.ballsSlider.value = state.balls;
+      els.runsValue.textContent = state.runs;
+      els.wicketsValue.textContent = state.wickets;
+      els.ballsValue.textContent = state.balls;
+      
+      [els.runsSlider, els.wicketsSlider, els.ballsSlider].forEach(updateSliderFill);
+      updateStatsBar();
+      updatePrediction();
+    } catch (err) {
+      console.error('Live Sync Error:', err);
+    }
+  }
+
+  function toggleLiveSync(enabled) {
+    state.liveSyncEnabled = enabled;
+    
+    els.inputGroups.forEach(el => el.classList.toggle('disabled-ui', enabled));
+    els.genderToggleGroups.forEach(el => el.classList.toggle('disabled-ui', enabled));
+    
+    if (enabled) {
+      els.liveIndicator.style.display = 'block';
+      fetchAndApplyLiveSync();
+      liveSyncInterval = setInterval(fetchAndApplyLiveSync, 15000);
+    } else {
+      els.liveIndicator.style.display = 'none';
+      if (liveSyncInterval) clearInterval(liveSyncInterval);
+    }
+  }
+
+  els.liveSyncCheckbox.addEventListener('change', (e) => {
+    toggleLiveSync(e.target.checked);
   });
 
   // Initialize slider fills
