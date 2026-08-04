@@ -36,6 +36,15 @@ async function fetchCricinfoScore(url) {
   try {
     const page = await browser.newPage();
     await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36');
+    await page.setRequestInterception(true);
+    page.on('request', (req) => {
+      if (['image', 'stylesheet', 'font', 'media'].includes(req.resourceType())) {
+        req.abort();
+      } else {
+        req.continue();
+      }
+    });
+
     await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
     
     // Give it a second to load React data
@@ -43,10 +52,8 @@ async function fetchCricinfoScore(url) {
     
     // Extract text from the page
     const text = await page.evaluate(() => {
-      // Look for the main match header container
-      // These classes often change, so we look for standard scoreboard structures
-      // 'ds-flex ds-flex-col ds-mt-3 ds-space-y-1' is a common parent
-      const matchHeader = document.querySelector('.ds-flex.ds-flex-col.ds-mt-3.ds-space-y-1') 
+      const matchHeader = document.querySelector('.ci-team-score')
+                          || document.querySelector('.ds-flex.ds-flex-col.ds-mt-3.ds-space-y-1') 
                           || document.querySelector('.ds-w-full.ds-bg-fill-content-prime')
                           || document.body;
       return matchHeader.innerText;
