@@ -143,7 +143,7 @@ async function fetchCricinfoScore(url) {
     }
     
     // Balls matching
-    const hundredBallsMatch = text.match(/\((\d{1,3})\/\d{1,3}\s*balls?\)/i);
+    const hundredBallsMatch = text.match(/\((\d{1,3})\/\d{1,3}\s*balls?/i);
     if (hundredBallsMatch) {
       balls = parseInt(hundredBallsMatch[1], 10);
     } else {
