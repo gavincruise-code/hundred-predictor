@@ -64,8 +64,8 @@ async function fetchCricinfoScore(url) {
     let balls = 0;
     let innings = '1';
     
-    // Basic heuristics to parse the text
-    const scoreMatch = text.match(/(\d{1,3})\/(\d{1,2})/);
+    // Basic heuristics to parse the text. Negative lookahead prevents "31/100 balls" from being parsed as score.
+    const scoreMatch = text.match(/(\d{1,3})\/(\d{1,2})(?!\d*\s*balls?)/);
     if (scoreMatch) {
       runs = parseInt(scoreMatch[1], 10);
       wickets = parseInt(scoreMatch[2], 10);
@@ -77,16 +77,20 @@ async function fetchCricinfoScore(url) {
       }
     }
     
-    // Balls matching (e.g. "85b", "85 balls", "ov 17.0" -> 17*5 = 85 balls in The Hundred)
-    const ballsMatch = text.match(/(?:(?:cb:\s*)?(\d{1,3})b)|(?:(\d{1,3})\s*balls?)/i);
-    if (ballsMatch) {
-      balls = parseInt(ballsMatch[1] || ballsMatch[2], 10);
+    // Balls matching
+    const hundredBallsMatch = text.match(/\((\d{1,3})\/\d{1,3}\s*balls?\)/i);
+    if (hundredBallsMatch) {
+      balls = parseInt(hundredBallsMatch[1], 10);
     } else {
-      const ovMatch = text.match(/(\d{1,2})\.(\d{1})\s*ov/i);
-      if (ovMatch) {
-        // Assume 5 ball overs for The Hundred, though Cricinfo might display it as 6. 
-        // We will do standard 5 ball calculation if it's the hundred
-        balls = (parseInt(ovMatch[1], 10) * 5) + parseInt(ovMatch[2], 10);
+      const ballsMatch = text.match(/(?:(?:cb:\s*)?(\d{1,3})b)|(?:(\d{1,3})\s*balls?)/i);
+      if (ballsMatch) {
+        balls = parseInt(ballsMatch[1] || ballsMatch[2], 10);
+      } else {
+        const ovMatch = text.match(/(\d{1,2})\.(\d{1})\s*ov/i);
+        if (ovMatch) {
+          // Assume 5 ball overs for The Hundred
+          balls = (parseInt(ovMatch[1], 10) * 5) + parseInt(ovMatch[2], 10);
+        }
       }
     }
 
