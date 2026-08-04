@@ -113,13 +113,16 @@ async function fetchCricinfoScore(url) {
     await new Promise(r => setTimeout(r, 1000));
     
     // Extract text from the page
-    const text = await page.evaluate(() => {
+    const pageData = await page.evaluate(() => {
       const matchHeader = document.querySelector('.ci-team-score')
                           || document.querySelector('.ds-flex.ds-flex-col.ds-mt-3.ds-space-y-1') 
                           || document.querySelector('.ds-w-full.ds-bg-fill-content-prime')
                           || document.body;
-      return matchHeader.innerText;
+      const battingAbbr = document.querySelector('.ci-team-score')?.innerText.split('\\n')[0].trim() || '';
+      return { text: matchHeader.innerText, title: document.title, battingAbbr };
     });
+    
+    const text = pageData.text;
     
     let runs = 0;
     let wickets = 0;
@@ -161,7 +164,96 @@ async function fetchCricinfoScore(url) {
       innings = '2';
     }
 
-    return { runs, wickets, balls, innings, _rawText: text.substring(0, 150) };
+    // --- Intelligent Auto-Selector Logic ---
+    let battingTeam = '';
+    let bowlingTeam = '';
+    let venue = '';
+
+    const validTeams = [
+      'Birmingham Phoenix', 'Southern Brave', 'Sunrisers Leeds', 'Manchester Super Giants', 
+      'MI London', 'London Spirit', 'Trent Rockets', 'Welsh Fire'
+    ];
+    const validVenues = [
+      'Kennington Oval, London', 'Edgbaston, Birmingham', 'Trent Bridge, Nottingham', 
+      'Headingley, Leeds', 'Old Trafford, Manchester', 'Sophia Gardens, Cardiff', 
+      "Lord's, London", 'The Rose Bowl, Southampton'
+    ];
+
+    // 1. Identify venue from title
+    const docTitle = pageData.title || '';
+    const titleLower = docTitle.toLowerCase();
+    for (const v of validVenues) {
+      // Create a search key, e.g. "Headingley" from "Headingley, Leeds"
+      const searchKey = v.split(',')[0].toLowerCase().trim();
+      if (titleLower.includes(searchKey)) {
+        venue = v;
+        break;
+      }
+    }
+    // Fallback: Check if city is in title (e.g. "Cardiff" for Sophia Gardens)
+    if (!venue) {
+      if (titleLower.includes('cardiff')) venue = 'Sophia Gardens, Cardiff';
+      else if (titleLower.includes('manchester')) venue = 'Old Trafford, Manchester';
+      else if (titleLower.includes('birmingham')) venue = 'Edgbaston, Birmingham';
+      else if (titleLower.includes('nottingham')) venue = 'Trent Bridge, Nottingham';
+      else if (titleLower.includes('southampton')) venue = 'The Rose Bowl, Southampton';
+      else if (titleLower.includes('leeds')) venue = 'Headingley, Leeds';
+    }
+
+    // 2. Identify the two playing teams from the URL
+    const urlLower = url.toLowerCase();
+    const playingTeams = [];
+    for (const t of validTeams) {
+      const slug = t.toLowerCase().replace(/\\s+/g, '-');
+      // Cricinfo urls usually have the team names without spaces e.g., sunrisers-leeds
+      if (urlLower.includes(slug) || urlLower.includes(t.toLowerCase().split(' ')[0])) {
+        // Special case to differentiate MI London and London Spirit if we just search 'london'
+        if (t === 'London Spirit' && urlLower.includes('spirit')) playingTeams.push(t);
+        else if (t === 'MI London' && urlLower.includes('mi-london')) playingTeams.push(t);
+        else if (t !== 'London Spirit' && t !== 'MI London') playingTeams.push(t);
+      }
+    }
+    
+    // Deduplicate playing teams
+    const uniquePlayingTeams = [...new Set(playingTeams)].slice(0, 2);
+
+    // 3. Match batting abbreviation to figure out who is batting
+    if (uniquePlayingTeams.length === 2 && pageData.battingAbbr) {
+      // E.g., 'LS-W' -> 'LS'
+      const abbr = pageData.battingAbbr.split('-')[0].toLowerCase().replace(/[^a-z]/g, '');
+      
+      let matchedIdx = -1;
+      // Try to find the team that matches the abbreviation
+      for (let i = 0; i < 2; i++) {
+        const teamName = uniquePlayingTeams[i].toLowerCase();
+        // Check if all letters of abbr are in the team name in order
+        let abbrMatches = true;
+        let lastPos = -1;
+        for (const char of abbr) {
+          const pos = teamName.indexOf(char, lastPos + 1);
+          if (pos === -1) { abbrMatches = false; break; }
+          lastPos = pos;
+        }
+        if (abbrMatches) {
+          matchedIdx = i;
+          break;
+        }
+      }
+
+      if (matchedIdx !== -1) {
+        battingTeam = uniquePlayingTeams[matchedIdx];
+        bowlingTeam = uniquePlayingTeams[matchedIdx === 0 ? 1 : 0];
+      } else {
+        // Fallback: just assign them arbitrarily if we couldn't match the abbr perfectly
+        battingTeam = uniquePlayingTeams[0];
+        bowlingTeam = uniquePlayingTeams[1];
+      }
+    } else if (uniquePlayingTeams.length === 2) {
+      battingTeam = uniquePlayingTeams[0];
+      bowlingTeam = uniquePlayingTeams[1];
+    }
+
+    return { runs, wickets, balls, innings, battingTeam, bowlingTeam, venue, _rawText: text.substring(0, 150) };
   } finally {
     await browser.close();
   }

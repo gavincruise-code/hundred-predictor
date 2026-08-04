@@ -791,6 +791,18 @@ function setupListeners() {
       if (liveData.innings) {
         state.innings = liveData.innings;
       }
+      if (liveData.venue && liveData.venue !== state.venue) {
+        state.venue = liveData.venue;
+        els.venueSelect.value = liveData.venue;
+      }
+      if (liveData.battingTeam && liveData.battingTeam !== state.battingTeam) {
+        state.battingTeam = liveData.battingTeam;
+        els.battingTeamSelect.value = liveData.battingTeam;
+      }
+      if (liveData.bowlingTeam && liveData.bowlingTeam !== state.bowlingTeam) {
+        state.bowlingTeam = liveData.bowlingTeam;
+        els.bowlingTeamSelect.value = liveData.bowlingTeam;
+      }
       
       if (state.gender === 'mens') {
         els.genderBtnMens.classList.add('active');
