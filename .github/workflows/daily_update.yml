@@ -1,0 +1,31 @@
+name: Daily Data Update
+
+on:
+  schedule:
+    - cron: '0 3 * * *' # Run at 03:00 UTC every day
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  update-data:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Run data processing pipeline
+        run: python process_data.py
+
+      - name: Commit and push changes
+        run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          git add public/model_mens.json public/model_womens.json
+          git diff --quiet && git diff --staged --quiet || (git commit -m "chore: daily automated data update" && git push)
