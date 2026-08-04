@@ -110,6 +110,7 @@ function updateActiveModel() {
   const genderModel = state.gender === 'mens' ? state.modelMens : state.modelWomens;
   state.model = genderModel[state.innings];
   populateVenueSelect();
+  populateTeamSelects();
   updateStatsBar();
   updatePrediction();
 }
@@ -143,11 +144,19 @@ function populateTeamSelects() {
   els.battingTeamSelect.innerHTML = optionsHTML;
   els.bowlingTeamSelect.innerHTML = optionsHTML;
   
-  if (teams.includes(state.battingTeam)) els.battingTeamSelect.value = state.battingTeam;
-  else state.battingTeam = 'overall';
+  if (teams.includes(state.battingTeam)) {
+    els.battingTeamSelect.value = state.battingTeam;
+  } else {
+    state.battingTeam = 'overall';
+    els.battingTeamSelect.value = 'overall';
+  }
   
-  if (teams.includes(state.bowlingTeam)) els.bowlingTeamSelect.value = state.bowlingTeam;
-  else state.bowlingTeam = 'overall';
+  if (teams.includes(state.bowlingTeam)) {
+    els.bowlingTeamSelect.value = state.bowlingTeam;
+  } else {
+    state.bowlingTeam = 'overall';
+    els.bowlingTeamSelect.value = 'overall';
+  }
 }
 
 // ============================================================
