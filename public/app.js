@@ -68,7 +68,8 @@ function cacheElements() {
   els.liveSyncCheckbox = $('#live-sync-checkbox');
   els.liveIndicator = $('#live-indicator');
   els.cricinfoUrlContainer = $('#cricinfo-url-container');
-  els.cricinfoUrlInput = $('#cricinfo-url');
+  els.liveMatchSelect = $('#live-match-select');
+  els.refreshMatchesBtn = $('#refresh-matches-btn');
   els.battingTeamSelect = $('#batting-team-select');
   els.bowlingTeamSelect = $('#bowling-team-select');
   els.inputGroups = document.querySelectorAll('#inputs-card .input-group');
@@ -754,12 +755,31 @@ function setupListeners() {
   // Live Sync logic
   let liveSyncInterval = null;
 
+  async function fetchMatchList() {
+    try {
+      els.liveMatchSelect.innerHTML = '<option value="">Loading matches...</option>';
+      const response = await fetch('/api/live-matches');
+      if (!response.ok) throw new Error('Failed to fetch matches');
+      const matches = await response.json();
+      
+      if (matches.length === 0) {
+        els.liveMatchSelect.innerHTML = '<option value="">No live matches found today</option>';
+      } else {
+        els.liveMatchSelect.innerHTML = '<option value="">Select a live match...</option>' + 
+          matches.map(m => `<option value="${m.url}">${m.title}</option>`).join('');
+      }
+    } catch (err) {
+      console.error(err);
+      els.liveMatchSelect.innerHTML = '<option value="">Error loading matches</option>';
+    }
+  }
+
   async function fetchAndApplyLiveSync() {
     if (!state.liveSyncEnabled || !window.LiveAPI) return;
     
-    const url = els.cricinfoUrlInput.value.trim();
+    const url = els.liveMatchSelect.value;
     if (!url) {
-      els.predictedScore.textContent = 'Paste URL...';
+      els.predictedScore.textContent = 'Select Match...';
       return;
     }
 
@@ -844,9 +864,16 @@ function setupListeners() {
     toggleLiveSync(e.target.checked);
   });
 
-  els.cricinfoUrlInput.addEventListener('change', () => {
+  els.liveMatchSelect.addEventListener('change', () => {
     if (state.liveSyncEnabled) fetchAndApplyLiveSync();
   });
+
+  els.refreshMatchesBtn.addEventListener('click', () => {
+    fetchMatchList();
+  });
+
+  // Fetch match list on initial load
+  fetchMatchList();
 
   // Initialize slider fills
   [els.runsSlider, els.wicketsSlider, els.ballsSlider].forEach(updateSliderFill);

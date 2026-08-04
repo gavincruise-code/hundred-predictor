@@ -25,6 +25,68 @@ let cachedScore = null;
 let lastFetchTime = 0;
 const CACHE_TTL = 15000; // 15 seconds
 
+async function fetchLiveMatches() {
+  if (!puppeteer) throw new Error('Puppeteer is not installed');
+  const browser = await puppeteer.launch({
+    headless: 'new',
+    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-web-security']
+  });
+  
+  try {
+    const page = await browser.newPage();
+    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36');
+    await page.setRequestInterception(true);
+    page.on('request', (req) => {
+      if (['image', 'stylesheet', 'font', 'media'].includes(req.resourceType())) {
+        req.abort();
+      } else {
+        req.continue();
+      }
+    });
+
+    await page.goto('https://www.espncricinfo.com/live-cricket-score', { waitUntil: 'domcontentloaded', timeout: 30000 });
+    await new Promise(r => setTimeout(r, 1000));
+    
+    const matches = await page.evaluate(() => {
+      const results = [];
+      const matchLinks = document.querySelectorAll('a[href*="/live-cricket-score"]');
+      matchLinks.forEach(a => {
+        const url = a.href;
+        if (!url || !url.includes('hundred')) return;
+        
+        // Try parsing the match slug for a clean title
+        // Example: https://.../sunrisers-leeds-women-vs-london-spirit-women-20th-match-1521216/live-cricket-score
+        try {
+          const parts = url.split('/');
+          const slug = parts[parts.length - 2];
+          let title = slug.split('-').slice(0, -3).join(' ');
+          // Title case it
+          title = title.replace(/\b\w/g, l => l.toUpperCase());
+          
+          results.push({ title, url });
+        } catch (e) {
+          results.push({ title: url, url });
+        }
+      });
+      return results;
+    });
+    
+    // Deduplicate matches based on url
+    const unique = [];
+    const seen = new Set();
+    matches.forEach(m => {
+      if (!seen.has(m.url)) {
+        seen.add(m.url);
+        unique.push(m);
+      }
+    });
+    
+    return unique;
+  } finally {
+    await browser.close();
+  }
+}
+
 async function fetchCricinfoScore(url) {
   if (!puppeteer) throw new Error('Puppeteer is not installed');
   
@@ -115,7 +177,20 @@ const server = http.createServer((req, res) => {
     filePath = '/index.html';
   }
 
-  // Handle API route
+  // Handle matches list API route
+  if (filePath === '/api/live-matches') {
+    fetchLiveMatches().then(matches => {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(matches));
+    }).catch(err => {
+      console.error('Failed to fetch live matches list:', err);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Failed to fetch match list' }));
+    });
+    return;
+  }
+
+  // Handle live score API route
   if (filePath === '/api/live-match') {
     const parsedUrl = new URL(req.url, `http://${req.headers.host}`);
     const targetUrl = parsedUrl.searchParams.get('url');
