@@ -790,12 +790,16 @@ function setupListeners() {
       
       // Always update innings and model first
       const prevInnings = state.innings;
+      const prevGender = state.gender;
       if (liveData.innings) {
         state.innings = liveData.innings;
       }
+      if (liveData.gender) {
+        state.gender = liveData.gender;
+      }
       
-      // If innings changed, update the model reference
-      if (state.innings !== prevInnings) {
+      // If innings OR gender changed, update the model reference
+      if (state.innings !== prevInnings || state.gender !== prevGender) {
         const genderModel = state.gender === 'mens' ? state.modelMens : state.modelWomens;
         state.model = genderModel[state.innings];
       }

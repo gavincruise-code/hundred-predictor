@@ -250,7 +250,10 @@ async function fetchCricinfoScore(url) {
       bowlingTeam = uniquePlayingTeams[1];
     }
 
-    return { runs, wickets, balls, innings, battingTeam, bowlingTeam, venue, _rawText: text.substring(0, 150) };
+    // Detect gender from URL
+    const gender = urlLower.includes('-women') ? 'womens' : 'mens';
+
+    return { runs, wickets, balls, innings, gender, battingTeam, bowlingTeam, venue, _rawText: text.substring(0, 150) };
   } finally {
     await browser.close();
   }
