@@ -31,7 +31,10 @@ async function fetchLiveMatchState(cricinfoUrl) {
     runs: data.runs || 0,
     wickets: data.wickets || 0,
     balls: data.balls || 0,
-    innings: data.innings || '1'
+    innings: data.innings || '1',
+    battingTeam: data.battingTeam || '',
+    bowlingTeam: data.bowlingTeam || '',
+    venue: data.venue || ''
   };
 }
 
