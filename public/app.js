@@ -826,17 +826,22 @@ function setupListeners() {
       }
       
       if (state.model) {
-        // Rebuild the dropdown options (this clears any visual selection)
-        populateVenueSelect();
-        populateTeamSelects();
-        
-        // Now force the dropdowns to the live-detected values
-        // (must be done AFTER populateVenueSelect/populateTeamSelects
-        // since those rebuild innerHTML, resetting visual selection)
-        if (liveData.venue) els.venueSelect.value = liveData.venue;
-        if (liveData.battingTeam) els.battingTeamSelect.value = liveData.battingTeam;
-        if (liveData.bowlingTeam) els.bowlingTeamSelect.value = liveData.bowlingTeam;
-        
+        // Set venue/team dropdowns directly without rebuilding innerHTML
+        // (Rebuilding innerHTML via populateVenueSelect/populateTeamSelects resets the
+        // visual selection every 3 seconds, which is what was preventing the UI from updating)
+        if (liveData.venue) {
+          state.venue = liveData.venue;
+          els.venueSelect.value = liveData.venue;
+        }
+        if (liveData.battingTeam) {
+          state.battingTeam = liveData.battingTeam;
+          els.battingTeamSelect.value = liveData.battingTeam;
+        }
+        if (liveData.bowlingTeam) {
+          state.bowlingTeam = liveData.bowlingTeam;
+          els.bowlingTeamSelect.value = liveData.bowlingTeam;
+        }
+
         state.runs = liveData.runs;
         state.wickets = liveData.wickets;
         state.balls = liveData.balls;
