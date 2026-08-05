@@ -214,23 +214,35 @@ async function fetchCricinfoScore(url) {
     // Deduplicate and take first two
     const uniquePlayingTeams = [...new Set(playingTeams)].slice(0, 2);
 
-    // 3. Match batting abbreviation using initials to figure out who is batting
+    // 3. Match batting team using word matches, nicknames, and initials
     if (uniquePlayingTeams.length === 2 && pageData.battingAbbr) {
-      const abbr = pageData.battingAbbr.split('-')[0].toLowerCase().replace(/[^a-z]/g, '');
-      
+      const cleanAbbr = pageData.battingAbbr.split('\n')[0].split('-')[0].toLowerCase().trim();
+      const alphaAbbr = cleanAbbr.replace(/[^a-z]/g, '');
+
       let matchedIdx = -1;
-      let bestScore = -1;
+      let bestScore = 0;
 
       for (let i = 0; i < 2; i++) {
         const teamName = uniquePlayingTeams[i];
-        // Build initials string from team name words
-        const initials = teamName.split(' ').map(w => w[0].toLowerCase()).join('');
-        // Score: how many leading characters of abbr match the initials
+        const teamLower = teamName.toLowerCase();
+        const teamWords = teamLower.split(' ');
+        const initials = teamWords.map(w => w[0]).join('');
+
         let score = 0;
-        for (let j = 0; j < Math.min(abbr.length, initials.length); j++) {
-          if (abbr[j] === initials[j]) score++;
-          else break;
+
+        // 1. Direct word or substring match (e.g., "Fire", "Super Giants", "Phoenix")
+        if (cleanAbbr.length >= 3 && (teamLower.includes(cleanAbbr) || teamWords.some(w => w === cleanAbbr))) {
+          score = 100;
         }
+        // 2. Exact initials match (e.g., "WF", "MSG", "BP", "LS")
+        else if (alphaAbbr.length > 0 && alphaAbbr === initials) {
+          score = 80;
+        }
+        // 3. Prefix initials match
+        else if (alphaAbbr.length > 0 && initials.startsWith(alphaAbbr)) {
+          score = 50;
+        }
+
         if (score > bestScore) {
           bestScore = score;
           matchedIdx = i;
