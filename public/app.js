@@ -205,7 +205,8 @@ function predict(balls, wickets, currentRuns, venue = null) {
     bowlMultiplier = state.model.team_ratings[state.bowlingTeam].bowling;
   }
 
-  const multiplier = batMultiplier * bowlMultiplier;
+  let multiplier = batMultiplier * bowlMultiplier;
+  multiplier = Math.max(0.75, Math.min(1.25, multiplier));
 
   // Blend median and mean for a more robust estimate
   const additionalRuns = (median * 0.6 + mean * 0.4) * multiplier;
