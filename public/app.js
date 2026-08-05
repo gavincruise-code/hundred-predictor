@@ -878,7 +878,7 @@ function setupListeners() {
       els.liveIndicator.style.display = 'block';
       els.cricinfoUrlContainer.style.display = 'block';
       fetchAndApplyLiveSync();
-      liveSyncInterval = setInterval(fetchAndApplyLiveSync, 15000);
+      liveSyncInterval = setInterval(fetchAndApplyLiveSync, 10000);
     } else {
       els.liveIndicator.style.display = 'none';
       els.cricinfoUrlContainer.style.display = 'none';
