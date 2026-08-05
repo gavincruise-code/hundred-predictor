@@ -44,7 +44,7 @@ async function fetchLiveMatches() {
       }
     });
 
-    await page.goto('https://www.espncricinfo.com/live-cricket-score', { waitUntil: 'domcontentloaded', timeout: 30000 });
+    await page.goto('https://www.espncricinfo.com/live-cricket-match-schedule-fixtures', { waitUntil: 'domcontentloaded', timeout: 30000 });
     await new Promise(r => setTimeout(r, 1000));
     
     const matches = await page.evaluate(() => {
@@ -54,12 +54,11 @@ async function fetchLiveMatches() {
         const url = a.href;
         if (!url || !url.includes('hundred')) return;
         
-        // Try parsing the match slug for a clean title
-        // Example: https://.../sunrisers-leeds-women-vs-london-spirit-women-20th-match-1521216/live-cricket-score
         try {
           const parts = url.split('/');
           const slug = parts[parts.length - 2];
           let title = slug.split('-').slice(0, -3).join(' ');
+          if (title.toLowerCase().includes('tba')) return;
           // Title case it
           title = title.replace(/\b\w/g, l => l.toUpperCase());
           
