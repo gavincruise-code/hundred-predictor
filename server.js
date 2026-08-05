@@ -159,8 +159,8 @@ async function fetchCricinfoScore(url) {
       }
     }
 
-    // Determine innings (very naive: if there's a target, it's 2nd innings)
-    if (text.match(/target/i) || text.match(/need/i)) {
+    // Determine innings (if there's a target, requirement, or innings break, it's 2nd innings)
+    if (text.match(/target/i) || text.match(/need/i) || text.match(/required/i) || text.match(/req\.?\s*rate/i) || text.match(/innings break/i)) {
       innings = '2';
     }
 
