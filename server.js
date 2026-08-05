@@ -159,8 +159,9 @@ async function fetchCricinfoScore(url) {
       }
     }
 
-    // Determine innings (if there's a target, requirement, or innings break, it's 2nd innings)
-    if (text.match(/target/i) || text.match(/need/i) || text.match(/required/i) || text.match(/req\.?\s*rate/i) || text.match(/innings break/i)) {
+    // Determine innings (if there's a target, requirement, innings break, or 1st innings hit 100 balls / 10 wickets)
+    const isFirstInningsComplete = (balls >= 100 || wickets >= 10) && !text.match(/target/i) && !text.match(/need/i) && !text.match(/required/i);
+    if (text.match(/target/i) || text.match(/need/i) || text.match(/required/i) || text.match(/req\.?\s*rate/i) || text.match(/innings break/i) || isFirstInningsComplete) {
       innings = '2';
     }
 
@@ -197,7 +198,6 @@ async function fetchCricinfoScore(url) {
     }
 
     // 2. Identify the two playing teams from the URL
-    // Fix: use /\s+/g not /\\s+/g (the double-escape was a bug — regex in a string literal)
     const playingTeams = [];
     for (const t of validTeams) {
       const slug = t.toLowerCase().replace(/\s+/g, '-');
@@ -215,7 +215,6 @@ async function fetchCricinfoScore(url) {
     const uniquePlayingTeams = [...new Set(playingTeams)].slice(0, 2);
 
     // 3. Match batting abbreviation using initials to figure out who is batting
-    // e.g. 'LS-W' → abbr='LS' matches 'London Spirit' (L+S initials)
     if (uniquePlayingTeams.length === 2 && pageData.battingAbbr) {
       const abbr = pageData.battingAbbr.split('-')[0].toLowerCase().replace(/[^a-z]/g, '');
       
@@ -239,8 +238,18 @@ async function fetchCricinfoScore(url) {
       }
 
       if (matchedIdx !== -1 && bestScore > 0) {
-        battingTeam = uniquePlayingTeams[matchedIdx];
-        bowlingTeam = uniquePlayingTeams[matchedIdx === 0 ? 1 : 0];
+        // If 1st innings is complete but Cricinfo is still showing 1st innings batting team,
+        // swap the teams for 2nd innings chase
+        if (isFirstInningsComplete) {
+          battingTeam = uniquePlayingTeams[matchedIdx === 0 ? 1 : 0];
+          bowlingTeam = uniquePlayingTeams[matchedIdx];
+          runs = 0;
+          wickets = 0;
+          balls = 0;
+        } else {
+          battingTeam = uniquePlayingTeams[matchedIdx];
+          bowlingTeam = uniquePlayingTeams[matchedIdx === 0 ? 1 : 0];
+        }
       } else {
         battingTeam = uniquePlayingTeams[0];
         bowlingTeam = uniquePlayingTeams[1];
