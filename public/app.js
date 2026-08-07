@@ -775,14 +775,96 @@ function setupListeners() {
     }
   }
 
+  function parseAndApplyMatchUrl(url, optionText) {
+    if (!url) return;
+
+    const urlLower = url.toLowerCase();
+    const textLower = (optionText || '').toLowerCase();
+
+    // 1. Detect gender from URL
+    const detectedGender = urlLower.includes('-women') ? 'womens' : 'mens';
+    if (state.gender !== detectedGender) {
+      state.gender = detectedGender;
+      if (state.gender === 'mens') {
+        els.genderBtnMens.classList.add('active');
+        els.genderBtnWomens.classList.remove('active');
+        els.genderSlider.classList.remove('right');
+      } else {
+        els.genderBtnWomens.classList.add('active');
+        els.genderBtnMens.classList.remove('active');
+        els.genderSlider.classList.add('right');
+      }
+      const genderModel = state.gender === 'mens' ? state.modelMens : state.modelWomens;
+      if (genderModel) {
+        state.model = genderModel[state.innings];
+        populateVenueSelect();
+        populateTeamSelects();
+      }
+    }
+
+    // 2. Detect teams from URL & option text (e.g. "Trent Rockets Women Vs Southern Brave Women")
+    const validTeams = [
+      'Birmingham Phoenix', 'Southern Brave', 'Sunrisers Leeds', 'Manchester Super Giants', 
+      'MI London', 'London Spirit', 'Trent Rockets', 'Welsh Fire'
+    ];
+
+    const matchedTeams = [];
+    for (const t of validTeams) {
+      const slug = t.toLowerCase().replace(/\s+/g, '-');
+      const firstWord = t.toLowerCase().split(' ')[0];
+      if (urlLower.includes(slug) || urlLower.includes(firstWord) || textLower.includes(t.toLowerCase())) {
+        if (t === 'London Spirit' && !urlLower.includes('spirit') && !textLower.includes('spirit')) continue;
+        if (t === 'MI London' && !urlLower.includes('mi-london') && !textLower.includes('mi london')) continue;
+        matchedTeams.push(t);
+      }
+    }
+    const uniqueTeams = [...new Set(matchedTeams)].slice(0, 2);
+
+    if (uniqueTeams.length >= 2) {
+      state.battingTeam = uniqueTeams[0];
+      state.bowlingTeam = uniqueTeams[1];
+      els.battingTeamSelect.value = state.battingTeam;
+      els.bowlingTeamSelect.value = state.bowlingTeam;
+    }
+
+    // 3. Detect venue from URL & title keywords
+    const venueKeywords = [
+      { keys: ['headingley', 'leeds'], venue: 'Headingley, Leeds' },
+      { keys: ['edgbaston', 'birmingham'], venue: 'Edgbaston, Birmingham' },
+      { keys: ['trent-bridge', 'trent bridge', 'nottingham'], venue: 'Trent Bridge, Nottingham' },
+      { keys: ['oval', 'kennington'], venue: 'Kennington Oval, London' },
+      { keys: ['old-trafford', 'old trafford', 'manchester'], venue: 'Old Trafford, Manchester' },
+      { keys: ['sophia-gardens', 'sophia gardens', 'cardiff'], venue: 'Sophia Gardens, Cardiff' },
+      { keys: ["lord's", 'lords'], venue: "Lord's, London" },
+      { keys: ['rose-bowl', 'rose bowl', 'southampton'], venue: 'The Rose Bowl, Southampton' },
+    ];
+
+    for (const { keys, venue: v } of venueKeywords) {
+      if (keys.some(k => urlLower.includes(k) || textLower.includes(k))) {
+        state.venue = v;
+        els.venueSelect.value = v;
+        break;
+      }
+    }
+
+    updateStatsBar();
+    updatePrediction();
+  }
+
   async function fetchAndApplyLiveSync() {
     if (!state.liveSyncEnabled || !window.LiveAPI) return;
     
+    const selectedOption = els.liveMatchSelect.options[els.liveMatchSelect.selectedIndex];
     const url = els.liveMatchSelect.value;
+    const optionText = selectedOption ? selectedOption.textContent : '';
+
     if (!url) {
       els.predictedScore.textContent = 'Select Match...';
       return;
     }
+
+    // Immediately pre-apply metadata from selected match URL & title so UI updates instantly
+    parseAndApplyMatchUrl(url, optionText);
 
     try {
       els.liveIndicator.style.animation = 'pulse 0.5s infinite'; // Fast pulse while fetching
@@ -805,7 +887,7 @@ function setupListeners() {
         state.model = genderModel[state.innings];
       }
 
-      // Always store the detected teams/venue in state
+      // Always store the detected teams/venue in state if liveData provided them
       if (liveData.venue) state.venue = liveData.venue;
       if (liveData.battingTeam) state.battingTeam = liveData.battingTeam;
       if (liveData.bowlingTeam) state.bowlingTeam = liveData.bowlingTeam;
@@ -831,9 +913,6 @@ function setupListeners() {
       }
       
       if (state.model) {
-        // Set venue/team dropdowns directly without rebuilding innerHTML
-        // (Rebuilding innerHTML via populateVenueSelect/populateTeamSelects resets the
-        // visual selection every 3 seconds, which is what was preventing the UI from updating)
         if (liveData.venue) {
           state.venue = liveData.venue;
           els.venueSelect.value = liveData.venue;
@@ -895,7 +974,16 @@ function setupListeners() {
   });
 
   els.liveMatchSelect.addEventListener('change', () => {
-    if (state.liveSyncEnabled) fetchAndApplyLiveSync();
+    const selectedOption = els.liveMatchSelect.options[els.liveMatchSelect.selectedIndex];
+    const url = els.liveMatchSelect.value;
+    const text = selectedOption ? selectedOption.textContent : '';
+
+    if (url) {
+      parseAndApplyMatchUrl(url, text);
+      if (state.liveSyncEnabled) {
+        fetchAndApplyLiveSync();
+      }
+    }
   });
 
   els.refreshMatchesBtn.addEventListener('click', () => {
