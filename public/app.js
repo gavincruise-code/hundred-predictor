@@ -70,6 +70,7 @@ function cacheElements() {
   els.cricinfoUrlContainer = $('#cricinfo-url-container');
   els.liveMatchSelect = $('#live-match-select');
   els.refreshMatchesBtn = $('#refresh-matches-btn');
+  els.pitchBadge = $('#pitch-badge');
   els.battingTeamSelect = $('#batting-team-select');
   els.bowlingTeamSelect = $('#bowling-team-select');
   els.inputGroups = document.querySelectorAll('#inputs-card .input-group');
@@ -194,10 +195,11 @@ function predict(balls, wickets, currentRuns, venue = null) {
     return null;
   }
 
-  // Apply Team Strength Multipliers
+  // Apply Team Strength Multipliers & Same-Day Pitch Factor
   let batMultiplier = 1.0;
   let bowlMultiplier = 1.0;
-  
+  let pitchFactor = (state.gender === 'mens' && state.sameDayPitchFactor) ? state.sameDayPitchFactor : 1.0;
+
   if (state.battingTeam !== 'overall' && state.model.team_ratings && state.model.team_ratings[state.battingTeam]) {
     batMultiplier = state.model.team_ratings[state.battingTeam].batting;
   }
@@ -205,8 +207,8 @@ function predict(balls, wickets, currentRuns, venue = null) {
     bowlMultiplier = state.model.team_ratings[state.bowlingTeam].bowling;
   }
 
-  let multiplier = batMultiplier * bowlMultiplier;
-  multiplier = Math.max(0.75, Math.min(1.25, multiplier));
+  let multiplier = batMultiplier * bowlMultiplier * pitchFactor;
+  multiplier = Math.max(0.75, Math.min(1.30, multiplier));
 
   // Blend median and mean for a more robust estimate
   const additionalRuns = (median * 0.6 + mean * 0.4) * multiplier;
@@ -901,6 +903,26 @@ function setupListeners() {
       if (liveData.battingTeam) state.battingTeam = liveData.battingTeam;
       if (liveData.bowlingTeam) state.bowlingTeam = liveData.bowlingTeam;
       
+      // Store same day pitch factor
+      if (liveData.sameDayPitchFactor) {
+        state.sameDayPitchFactor = liveData.sameDayPitchFactor;
+        state.womensScoreObserved = liveData.womensScoreObserved;
+        state.womensScoreBaseline = liveData.womensScoreBaseline;
+      } else {
+        state.sameDayPitchFactor = null;
+      }
+
+      if (els.pitchBadge) {
+        if (state.gender === 'mens' && state.sameDayPitchFactor) {
+          const pct = Math.round((state.sameDayPitchFactor - 1.0) * 100);
+          const sign = pct >= 0 ? '+' : '';
+          els.pitchBadge.style.display = 'block';
+          els.pitchBadge.textContent = `🏟️ Pitch Factor: ${sign}${pct}% based on Women's match earlier (${state.womensScoreObserved} vs ${Math.round(state.womensScoreBaseline)} ground avg)`;
+        } else {
+          els.pitchBadge.style.display = 'none';
+        }
+      }
+
       if (state.gender === 'mens') {
         els.genderBtnMens.classList.add('active');
         els.genderBtnWomens.classList.remove('active');

@@ -412,6 +412,56 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+function findMatchingWomensUrl(score, fixturesList) {
+  if (!score || !score.battingTeam || !score.bowlingTeam) return null;
+  const t1 = score.battingTeam.toLowerCase();
+  const t2 = score.bowlingTeam.toLowerCase();
+
+  const womensMatch = fixturesList.find(f => {
+    const fTitle = f.title.toLowerCase();
+    return fTitle.includes('women') && fTitle.includes(t1.split(' ')[0]) && fTitle.includes(t2.split(' ')[0]);
+  });
+
+  return womensMatch ? womensMatch.url : null;
+}
+
+async function attachSameDayPitchFactor(score) {
+  if (!score || score.gender !== 'mens' || !score.venue) return score;
+
+  try {
+    const fallbackPath = path.join(__dirname, 'fixtures_fallback.json');
+    if (!fs.existsSync(fallbackPath)) return score;
+    const fixtures = JSON.parse(fs.readFileSync(fallbackPath, 'utf8'));
+
+    const wUrl = findMatchingWomensUrl(score, fixtures);
+    if (!wUrl) return score;
+
+    let wScore = cachedScores.get(wUrl)?.score;
+    if (!wScore) {
+      wScore = await fetchCricinfoScore(wUrl).catch(() => null);
+      if (wScore) cachedScores.set(wUrl, { score: wScore, timestamp: Date.now() });
+    }
+
+    if (wScore && wScore.runs > 0) {
+      const womensModelPath = path.join(__dirname, 'public', 'model_womens.json');
+      if (fs.existsSync(womensModelPath)) {
+        const womensModel = JSON.parse(fs.readFileSync(womensModelPath, 'utf8'));
+        const baseline = womensModel['1']?.venues?.[score.venue]?.summary?.avg_score || womensModel['1']?.overall?.summary?.avg_score || 127.5;
+        let ratio = wScore.runs / baseline;
+        ratio = Math.max(0.80, Math.min(1.20, ratio));
+        
+        score.sameDayPitchFactor = Math.round(ratio * 1000) / 1000;
+        score.womensScoreObserved = wScore.runs;
+        score.womensScoreBaseline = baseline;
+      }
+    }
+  } catch (e) {
+    console.error('Error computing sameDayPitchFactor:', e.message);
+  }
+
+  return score;
+}
+
   // Handle live score API route
   if (filePath === '/api/live-match') {
     const parsedUrl = new URL(req.url, `http://${req.headers.host}`);
@@ -431,11 +481,13 @@ const server = http.createServer((req, res) => {
       return;
     }
 
-    fetchCricinfoScore(targetUrl).then(score => {
-      cachedScores.set(targetUrl, { score, timestamp: Date.now() });
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(score));
-    }).catch(err => {
+    fetchCricinfoScore(targetUrl)
+      .then(score => attachSameDayPitchFactor(score))
+      .then(score => {
+        cachedScores.set(targetUrl, { score, timestamp: Date.now() });
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(score));
+      }).catch(err => {
       console.error('Puppeteer scraping error:', err.message);
       // Fallback: If we have a cached score for this URL, serve it
       if (cached) {
