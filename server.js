@@ -39,10 +39,12 @@ function getChromiumExecutablePath() {
   for (const p of possiblePaths) {
     if (fs.existsSync(p)) return p;
   }
-  try {
-    const which = require('child_process').execSync('which chromium || which chromium-browser || which google-chrome', { encoding: 'utf-8' }).trim();
-    if (which && fs.existsSync(which)) return which;
-  } catch (e) {}
+  if (process.platform !== 'win32') {
+    try {
+      const which = require('child_process').execSync('which chromium || which chromium-browser || which google-chrome', { stdio: 'pipe', encoding: 'utf-8' }).trim();
+      if (which && fs.existsSync(which)) return which;
+    } catch (e) {}
+  }
   return undefined;
 }
 
