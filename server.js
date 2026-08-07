@@ -25,12 +25,30 @@ let cachedScore = null;
 let lastFetchTime = 0;
 const CACHE_TTL = 15000; // 15 seconds
 
+function getPuppeteerLaunchOptions() {
+  const opts = {
+    headless: 'new',
+    args: [
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage',
+      '--disable-accelerated-2d-canvas',
+      '--no-first-run',
+      '--no-zygote',
+      '--single-process',
+      '--disable-gpu',
+      '--disable-web-security'
+    ]
+  };
+  if (process.env.PUPPETEER_EXECUTABLE_PATH) {
+    opts.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
+  }
+  return opts;
+}
+
 async function fetchLiveMatches() {
   if (!puppeteer) throw new Error('Puppeteer is not installed');
-  const browser = await puppeteer.launch({
-    headless: 'new',
-    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-web-security']
-  });
+  const browser = await puppeteer.launch(getPuppeteerLaunchOptions());
   
   try {
     const page = await browser.newPage();
@@ -89,10 +107,7 @@ async function fetchLiveMatches() {
 async function fetchCricinfoScore(url) {
   if (!puppeteer) throw new Error('Puppeteer is not installed');
   
-  const browser = await puppeteer.launch({
-    headless: 'new',
-    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-web-security']
-  });
+  const browser = await puppeteer.launch(getPuppeteerLaunchOptions());
   
   try {
     const page = await browser.newPage();
