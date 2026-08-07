@@ -24,6 +24,28 @@ const MIME_TYPES = {
 const cachedScores = new Map(); // url -> { score, timestamp }
 const CACHE_TTL = 15000; // 15 seconds
 
+function getChromiumExecutablePath() {
+  if (process.env.PUPPETEER_EXECUTABLE_PATH && fs.existsSync(process.env.PUPPETEER_EXECUTABLE_PATH)) {
+    return process.env.PUPPETEER_EXECUTABLE_PATH;
+  }
+  const possiblePaths = [
+    '/usr/bin/chromium',
+    '/usr/bin/chromium-browser',
+    '/usr/bin/google-chrome-stable',
+    '/usr/bin/google-chrome',
+    '/root/.nix-profile/bin/chromium',
+    '/nix/var/nix/profiles/default/bin/chromium'
+  ];
+  for (const p of possiblePaths) {
+    if (fs.existsSync(p)) return p;
+  }
+  try {
+    const which = require('child_process').execSync('which chromium || which chromium-browser || which google-chrome', { encoding: 'utf-8' }).trim();
+    if (which && fs.existsSync(which)) return which;
+  } catch (e) {}
+  return undefined;
+}
+
 function getPuppeteerLaunchOptions() {
   const opts = {
     headless: 'new',
@@ -40,8 +62,9 @@ function getPuppeteerLaunchOptions() {
       '--disable-web-security'
     ]
   };
-  if (process.env.PUPPETEER_EXECUTABLE_PATH) {
-    opts.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
+  const execPath = getChromiumExecutablePath();
+  if (execPath) {
+    opts.executablePath = execPath;
   }
   return opts;
 }
