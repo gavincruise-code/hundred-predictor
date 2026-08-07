@@ -21,8 +21,7 @@ const MIME_TYPES = {
 };
 
 // --- Puppeteer Scraper ---
-let cachedScore = null;
-let lastFetchTime = 0;
+const cachedScores = new Map(); // url -> { score, timestamp }
 const CACHE_TTL = 15000; // 15 seconds
 
 function getPuppeteerLaunchOptions() {
@@ -206,6 +205,7 @@ async function fetchCricinfoScore(url) {
     }
 
     // --- Intelligent Auto-Selector Logic ---
+    const urlLower = url.toLowerCase();
     let battingTeam = '';
     let bowlingTeam = '';
     let venue = '';
@@ -215,29 +215,7 @@ async function fetchCricinfoScore(url) {
       'MI London', 'London Spirit', 'Trent Rockets', 'Welsh Fire'
     ];
 
-    // Map of URL/title keywords to venue names
-    const venueKeywords = [
-      { keys: ['headingley', 'leeds'], venue: 'Headingley, Leeds' },
-      { keys: ['edgbaston', 'birmingham'], venue: 'Edgbaston, Birmingham' },
-      { keys: ['trent-bridge', 'trent bridge', 'nottingham'], venue: 'Trent Bridge, Nottingham' },
-      { keys: ['oval', 'kennington'], venue: 'Kennington Oval, London' },
-      { keys: ['old-trafford', 'old trafford', 'manchester'], venue: 'Old Trafford, Manchester' },
-      { keys: ['sophia-gardens', 'sophia gardens', 'cardiff'], venue: 'Sophia Gardens, Cardiff' },
-      { keys: ["lord's", 'lords'], venue: "Lord's, London" },
-      { keys: ['rose-bowl', 'rose bowl', 'southampton'], venue: 'The Rose Bowl, Southampton' },
-    ];
-
-    // 1. Identify venue — check both the page title AND the URL
-    const docTitle = (pageData.title || '').toLowerCase();
-    const urlLower = url.toLowerCase();
-    for (const { keys, venue: v } of venueKeywords) {
-      if (keys.some(k => docTitle.includes(k) || urlLower.includes(k))) {
-        venue = v;
-        break;
-      }
-    }
-
-    // 2. Identify the two playing teams from the URL
+    // 1. Identify the two playing teams from the URL (Team A = Home, Team B = Away)
     const playingTeams = [];
     for (const t of validTeams) {
       const slug = t.toLowerCase().replace(/\s+/g, '-');
@@ -253,6 +231,34 @@ async function fetchCricinfoScore(url) {
     
     // Deduplicate and take first two
     const uniquePlayingTeams = [...new Set(playingTeams)].slice(0, 2);
+
+    // 2. Identify venue — check actual ground names in title/text first, else map to Home Team's ground
+    const teamHomeVenues = {
+      'Birmingham Phoenix': 'Edgbaston, Birmingham',
+      'Sunrisers Leeds': 'Headingley, Leeds',
+      'Trent Rockets': 'Trent Bridge, Nottingham',
+      'MI London': 'Kennington Oval, London',
+      'London Spirit': "Lord's, London",
+      'Manchester Super Giants': 'Old Trafford, Manchester',
+      'Welsh Fire': 'Sophia Gardens, Cardiff',
+      'Southern Brave': 'The Rose Bowl, Southampton'
+    };
+
+    const docTitle = (pageData.title || '').toLowerCase();
+    
+    // Direct ground name matches
+    if (docTitle.includes('edgbaston')) venue = 'Edgbaston, Birmingham';
+    else if (docTitle.includes('headingley')) venue = 'Headingley, Leeds';
+    else if (docTitle.includes('trent bridge')) venue = 'Trent Bridge, Nottingham';
+    else if (docTitle.includes('oval') || docTitle.includes('kennington')) venue = 'Kennington Oval, London';
+    else if (docTitle.includes('old trafford')) venue = 'Old Trafford, Manchester';
+    else if (docTitle.includes('sophia gardens') || docTitle.includes('cardiff')) venue = 'Sophia Gardens, Cardiff';
+    else if (docTitle.includes("lord's") || docTitle.includes('lords')) venue = "Lord's, London";
+    else if (docTitle.includes('rose bowl') || docTitle.includes('southampton')) venue = 'The Rose Bowl, Southampton';
+    else if (uniquePlayingTeams.length > 0 && teamHomeVenues[uniquePlayingTeams[0]]) {
+      // In Team A vs Team B, Team A is the Home Team
+      venue = teamHomeVenues[uniquePlayingTeams[0]];
+    }
 
     // 3. Match batting team using word matches, nicknames, and initials
     if (uniquePlayingTeams.length === 2 && pageData.battingAbbr) {
@@ -392,24 +398,24 @@ const server = http.createServer((req, res) => {
       return;
     }
 
-    // Use Cache if fresh (within TTL)
-    if (cachedScore && (Date.now() - lastFetchTime < CACHE_TTL)) {
+    // Use Cache if fresh for this specific targetUrl
+    const cached = cachedScores.get(targetUrl);
+    if (cached && (Date.now() - cached.timestamp < CACHE_TTL)) {
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(cachedScore));
+      res.end(JSON.stringify(cached.score));
       return;
     }
 
     fetchCricinfoScore(targetUrl).then(score => {
-      cachedScore = score;
-      lastFetchTime = Date.now();
+      cachedScores.set(targetUrl, { score, timestamp: Date.now() });
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(score));
     }).catch(err => {
       console.error('Puppeteer scraping error:', err.message);
-      // Fallback: If we have a cached score, serve it
-      if (cachedScore) {
+      // Fallback: If we have a cached score for this URL, serve it
+      if (cached) {
         res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify(cachedScore));
+        res.end(JSON.stringify(cached.score));
         return;
       }
       // Safe fallback response so UI never crashes or shows HTTP error status

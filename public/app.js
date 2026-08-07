@@ -827,24 +827,33 @@ function setupListeners() {
       els.bowlingTeamSelect.value = state.bowlingTeam;
     }
 
-    // 3. Detect venue from URL & title keywords
-    const venueKeywords = [
-      { keys: ['headingley', 'leeds'], venue: 'Headingley, Leeds' },
-      { keys: ['edgbaston', 'birmingham'], venue: 'Edgbaston, Birmingham' },
-      { keys: ['trent-bridge', 'trent bridge', 'nottingham'], venue: 'Trent Bridge, Nottingham' },
-      { keys: ['oval', 'kennington'], venue: 'Kennington Oval, London' },
-      { keys: ['old-trafford', 'old trafford', 'manchester'], venue: 'Old Trafford, Manchester' },
-      { keys: ['sophia-gardens', 'sophia gardens', 'cardiff'], venue: 'Sophia Gardens, Cardiff' },
-      { keys: ["lord's", 'lords'], venue: "Lord's, London" },
-      { keys: ['rose-bowl', 'rose bowl', 'southampton'], venue: 'The Rose Bowl, Southampton' },
-    ];
+    // 3. Detect venue: check direct ground names or map to Home Team's home venue
+    const teamHomeVenues = {
+      'Birmingham Phoenix': 'Edgbaston, Birmingham',
+      'Sunrisers Leeds': 'Headingley, Leeds',
+      'Trent Rockets': 'Trent Bridge, Nottingham',
+      'MI London': 'Kennington Oval, London',
+      'London Spirit': "Lord's, London",
+      'Manchester Super Giants': 'Old Trafford, Manchester',
+      'Welsh Fire': 'Sophia Gardens, Cardiff',
+      'Southern Brave': 'The Rose Bowl, Southampton'
+    };
 
-    for (const { keys, venue: v } of venueKeywords) {
-      if (keys.some(k => urlLower.includes(k) || textLower.includes(k))) {
-        state.venue = v;
-        els.venueSelect.value = v;
-        break;
-      }
+    if (textLower.includes('edgbaston')) state.venue = 'Edgbaston, Birmingham';
+    else if (textLower.includes('headingley')) state.venue = 'Headingley, Leeds';
+    else if (textLower.includes('trent bridge')) state.venue = 'Trent Bridge, Nottingham';
+    else if (textLower.includes('oval') || textLower.includes('kennington')) state.venue = 'Kennington Oval, London';
+    else if (textLower.includes('old trafford')) state.venue = 'Old Trafford, Manchester';
+    else if (textLower.includes('sophia gardens') || textLower.includes('cardiff')) state.venue = 'Sophia Gardens, Cardiff';
+    else if (textLower.includes("lord's") || textLower.includes('lords')) state.venue = "Lord's, London";
+    else if (textLower.includes('rose bowl') || textLower.includes('southampton')) state.venue = 'The Rose Bowl, Southampton';
+    else if (uniqueTeams.length > 0 && teamHomeVenues[uniqueTeams[0]]) {
+      // In Team A vs Team B, Team A is the Home Team
+      state.venue = teamHomeVenues[uniqueTeams[0]];
+    }
+
+    if (state.venue && els.venueSelect) {
+      els.venueSelect.value = state.venue;
     }
 
     updateStatsBar();
