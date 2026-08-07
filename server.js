@@ -295,6 +295,44 @@ async function fetchCricinfoScore(url) {
 }
 // -------------------------
 
+let cachedMatchesList = null;
+let lastMatchesFetchTime = 0;
+const MATCHES_CACHE_TTL = 300000; // 5 minutes cache
+
+async function getLiveMatchesWithFallback() {
+  const now = Date.now();
+  if (cachedMatchesList && (now - lastMatchesFetchTime < MATCHES_CACHE_TTL)) {
+    return cachedMatchesList;
+  }
+
+  try {
+    const scraped = await fetchLiveMatches();
+    if (scraped && scraped.length > 0) {
+      cachedMatchesList = scraped;
+      lastMatchesFetchTime = now;
+      return scraped;
+    }
+  } catch (err) {
+    console.error('Puppeteer match list scrape error, loading fallback schedule:', err.message);
+  }
+
+  try {
+    const fallbackPath = path.join(__dirname, 'fixtures_fallback.json');
+    if (fs.existsSync(fallbackPath)) {
+      const data = JSON.parse(fs.readFileSync(fallbackPath, 'utf8'));
+      if (data && data.length > 0) {
+        cachedMatchesList = data;
+        lastMatchesFetchTime = now;
+        return data;
+      }
+    }
+  } catch (e) {
+    console.error('Error reading fixtures_fallback.json:', e.message);
+  }
+
+  return [];
+}
+
 const server = http.createServer((req, res) => {
   // Parse URL, strip query string
   let filePath = req.url.split('?')[0];
@@ -306,13 +344,13 @@ const server = http.createServer((req, res) => {
 
   // Handle matches list API route
   if (filePath === '/api/live-matches') {
-    fetchLiveMatches().then(matches => {
+    getLiveMatchesWithFallback().then(matches => {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(matches));
     }).catch(err => {
       console.error('Failed to fetch live matches list:', err);
-      res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'Failed to fetch match list' }));
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify([]));
     });
     return;
   }
