@@ -392,7 +392,7 @@ const server = http.createServer((req, res) => {
       return;
     }
 
-    // Use Cache
+    // Use Cache if fresh (within TTL)
     if (cachedScore && (Date.now() - lastFetchTime < CACHE_TTL)) {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(cachedScore));
@@ -405,9 +405,24 @@ const server = http.createServer((req, res) => {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(score));
     }).catch(err => {
-      console.error('Puppeteer scraping error:', err);
-      res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'Failed to scrape live score from the provided URL' }));
+      console.error('Puppeteer scraping error:', err.message);
+      // Fallback: If we have a cached score, serve it
+      if (cachedScore) {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(cachedScore));
+        return;
+      }
+      // Safe fallback response so UI never crashes or shows HTTP error status
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        runs: 0,
+        wickets: 0,
+        balls: 0,
+        innings: '1',
+        battingTeam: '',
+        bowlingTeam: '',
+        venue: ''
+      }));
     });
     return;
   }

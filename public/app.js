@@ -864,7 +864,9 @@ function setupListeners() {
       }
     } catch (err) {
       console.error('Live Sync Error:', err);
-      els.predictedScore.textContent = 'Error';
+      if (!els.predictedScore.textContent || els.predictedScore.textContent === 'Select Match...') {
+        els.predictedScore.textContent = 'Syncing...';
+      }
       els.liveIndicator.style.animation = 'pulse 1.5s infinite';
     }
   }
