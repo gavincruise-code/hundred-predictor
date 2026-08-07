@@ -33,6 +33,7 @@ function getPuppeteerLaunchOptions() {
       '--disable-setuid-sandbox',
       '--disable-dev-shm-usage',
       '--disable-accelerated-2d-canvas',
+      '--disable-blink-features=AutomationControlled',
       '--no-first-run',
       '--no-zygote',
       '--single-process',
@@ -46,13 +47,34 @@ function getPuppeteerLaunchOptions() {
   return opts;
 }
 
+async function setupStealthPage(page) {
+  await page.evaluateOnNewDocument(() => {
+    Object.defineProperty(navigator, 'webdriver', { get: () => false });
+    Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3, 4, 5] });
+    Object.defineProperty(navigator, 'languages', { get: () => ['en-US', 'en'] });
+  });
+  await page.setViewport({ width: 1366, height: 768 });
+  await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+  await page.setExtraHTTPHeaders({
+    'accept-language': 'en-US,en;q=0.9',
+    'sec-ch-ua': '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
+    'sec-ch-ua-mobile': '?0',
+    'sec-ch-ua-platform': '"Windows"',
+    'sec-fetch-dest': 'document',
+    'sec-fetch-mode': 'navigate',
+    'sec-fetch-site': 'none',
+    'sec-fetch-user': '?1',
+    'upgrade-insecure-requests': '1'
+  });
+}
+
 async function fetchLiveMatches() {
   if (!puppeteer) throw new Error('Puppeteer is not installed');
   const browser = await puppeteer.launch(getPuppeteerLaunchOptions());
   
   try {
     const page = await browser.newPage();
-    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36');
+    await setupStealthPage(page);
     await page.setRequestInterception(true);
     page.on('request', (req) => {
       if (['image', 'stylesheet', 'font', 'media'].includes(req.resourceType())) {
@@ -111,7 +133,7 @@ async function fetchCricinfoScore(url) {
   
   try {
     const page = await browser.newPage();
-    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36');
+    await setupStealthPage(page);
     await page.setRequestInterception(true);
     page.on('request', (req) => {
       if (['image', 'stylesheet', 'font', 'media'].includes(req.resourceType())) {
@@ -137,6 +159,10 @@ async function fetchCricinfoScore(url) {
     });
     
     const text = pageData.text;
+
+    if (pageData.title.includes('Access Denied') || text.includes('permission to access')) {
+      throw new Error('ESPNcricinfo blocked request (403 Access Denied)');
+    }
     
     let runs = 0;
     let wickets = 0;
