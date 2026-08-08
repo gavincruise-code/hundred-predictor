@@ -66,19 +66,19 @@
               <option value="">Select a live match...</option>
             </select>
             <button id="refresh-matches-btn" style="padding: 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); background: rgba(0,0,0,0.4); color: white; cursor: pointer;">↻</button>
-        <div id="pitch-badge" style="display: none; margin-bottom: 1rem; padding: 8px 12px; border-radius: 8px; background: rgba(59, 130, 246, 0.15); border: 1px solid rgba(59, 130, 246, 0.4); color: #60a5fa; font-size: 0.82rem; font-weight: 500;">
-          🏟️ Same-Day Pitch Adjustment: +0%
+          </div>
+          <div id="pitch-badge" style="display: none; margin-top: 0.75rem; padding: 8px 12px; border-radius: 8px; background: rgba(59, 130, 246, 0.15); border: 1px solid rgba(59, 130, 246, 0.4); color: #60a5fa; font-size: 0.82rem; font-weight: 500;">
+            🏟️ Same-Day Pitch Adjustment: +0%
+          </div>
         </div>
 
         <!-- Ground & Teams Match Setup Section -->
         <div class="match-setup-section">
           <!-- Ground Selection -->
-          <div class="input-group input-group--compact">
-            <div class="input-group__header">
-              <span class="input-group__label">🏟️ Ground / Venue</span>
-            </div>
+          <div class="setup-row">
+            <label class="setup-label">🏟️ Ground / Venue</label>
             <div class="select-wrapper">
-              <select id="venue-select" class="venue-select custom-select custom-select--venue">
+              <select id="venue-select" class="venue-select custom-select">
                 <option value="overall">All Grounds / Overall Average</option>
               </select>
               <div class="select-arrow">▼</div>
@@ -86,11 +86,9 @@
           </div>
 
           <!-- Teams Matchup Grid (Batting vs Bowling) -->
-          <div class="teams-matchup-grid">
-            <div class="input-group input-group--compact">
-              <div class="input-group__header">
-                <span class="input-group__label">🏏 Batting Team</span>
-              </div>
+          <div class="setup-teams-container">
+            <div class="setup-team-box">
+              <label class="setup-label">🏏 Batting Team</label>
               <div class="select-wrapper">
                 <select id="batting-team-select" class="venue-select custom-select custom-select--batting">
                   <option value="overall">Unknown / Average</option>
@@ -99,12 +97,10 @@
               </div>
             </div>
 
-            <div class="vs-divider">VS</div>
+            <div class="setup-vs-badge">VS</div>
 
-            <div class="input-group input-group--compact">
-              <div class="input-group__header">
-                <span class="input-group__label">🎯 Bowling Team</span>
-              </div>
+            <div class="setup-team-box">
+              <label class="setup-label">🎯 Bowling Team</label>
               <div class="select-wrapper">
                 <select id="bowling-team-select" class="venue-select custom-select custom-select--bowling">
                   <option value="overall">Unknown / Average</option>
