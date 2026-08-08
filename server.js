@@ -171,14 +171,10 @@ async function fetchCricinfoScore(url) {
     // Give it a second to load React data
     await new Promise(r => setTimeout(r, 1000));
     
-    // Extract text from the page
+    // Extract text from the page (combining document.title and body text)
     const pageData = await page.evaluate(() => {
-      const matchHeader = document.querySelector('.ci-team-score')
-                          || document.querySelector('.ds-flex.ds-flex-col.ds-mt-3.ds-space-y-1') 
-                          || document.querySelector('.ds-w-full.ds-bg-fill-content-prime')
-                          || document.body;
-      const battingAbbr = document.querySelector('.ci-team-score')?.innerText.split('\\n')[0].trim() || '';
-      return { text: matchHeader.innerText, title: document.title, battingAbbr };
+      const fullText = (document.title || '') + '\n' + (document.body ? document.body.innerText : '');
+      return { text: fullText, title: document.title };
     });
     
     const text = pageData.text;
