@@ -186,18 +186,22 @@
           <span>PRR <span class="current-rr__value" id="required-rr">—</span></span>
         </div>
 
-        <div class="match-state">
-          <div class="match-state__item">
-            <div class="match-state__val" id="match-runs">0</div>
-            <div class="match-state__label">Runs</div>
+        <!-- Broadcast Scoreboard Grid (Runs/Wkts & Balls) -->
+        <div class="match-scoreboard">
+          <div class="match-scoreboard__item">
+            <div class="match-scoreboard__value">
+              <span id="match-runs" class="match-scoreboard__runs">0</span><span class="match-scoreboard__slash">/</span><span id="match-wickets" class="match-scoreboard__wickets">0</span>
+            </div>
+            <div class="match-scoreboard__label">Score (Runs / Wkts)</div>
           </div>
-          <div class="match-state__item">
-            <div class="match-state__val" id="match-wickets">0</div>
-            <div class="match-state__label">Wickets</div>
-          </div>
-          <div class="match-state__item">
-            <div class="match-state__val" id="match-balls">0</div>
-            <div class="match-state__label">Balls</div>
+          
+          <div class="match-scoreboard__divider"></div>
+
+          <div class="match-scoreboard__item">
+            <div class="match-scoreboard__value">
+              <span id="match-balls" class="match-scoreboard__balls">0</span><span class="match-scoreboard__total-balls">/100</span>
+            </div>
+            <div class="match-scoreboard__label">Balls Bowled</div>
           </div>
         </div>
       </div>

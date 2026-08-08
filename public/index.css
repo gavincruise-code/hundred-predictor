@@ -581,24 +581,75 @@ input[type="range"].slider--purple {
   color: var(--text-secondary);
 }
 
-/* Match state summary */
-.match-state {
+/* Match Scoreboard Display (Broadcast Style) */
+.match-scoreboard {
   display: flex;
-  gap: 1.5rem;
-  margin-top: 1.5rem;
+  align-items: center;
+  justify-content: space-around;
+  gap: 1.25rem;
+  margin-top: 1.25rem;
+  padding: 0.85rem 1.25rem;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
   position: relative;
   z-index: 1;
+  width: 100%;
+  max-width: 340px;
 }
 
-.match-state__item {
-  text-align: center;
+.match-scoreboard__item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
-.match-state__val {
+.match-scoreboard__value {
   font-family: 'Outfit', sans-serif;
-  font-size: 1.1rem;
-  font-weight: 700;
+  font-size: 1.6rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
   color: var(--text-primary);
+  line-height: 1.1;
+}
+
+.match-scoreboard__runs {
+  color: var(--accent-teal);
+}
+
+.match-scoreboard__slash {
+  margin: 0 2px;
+  color: var(--text-dim);
+  font-weight: 400;
+}
+
+.match-scoreboard__wickets {
+  color: var(--accent-orange);
+}
+
+.match-scoreboard__balls {
+  color: var(--accent-purple);
+}
+
+.match-scoreboard__total-balls {
+  font-size: 0.95rem;
+  color: var(--text-dim);
+  font-weight: 500;
+}
+
+.match-scoreboard__label {
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  margin-top: 0.35rem;
+}
+
+.match-scoreboard__divider {
+  width: 1px;
+  height: 34px;
+  background: rgba(255, 255, 255, 0.1);
 }
 
 .match-state__label {
