@@ -59,7 +59,6 @@ function getPuppeteerLaunchOptions() {
       '--disable-blink-features=AutomationControlled',
       '--no-first-run',
       '--no-zygote',
-      '--single-process',
       '--disable-gpu',
       '--disable-web-security'
     ]
@@ -160,7 +159,7 @@ async function fetchCricinfoScore(url) {
     await setupStealthPage(page);
     await page.setRequestInterception(true);
     page.on('request', (req) => {
-      if (['image', 'stylesheet', 'font', 'media'].includes(req.resourceType())) {
+      if (['image', 'font', 'media'].includes(req.resourceType())) {
         req.abort();
       } else {
         req.continue();
@@ -484,7 +483,9 @@ async function attachSameDayPitchFactor(score) {
     fetchCricinfoScore(targetUrl)
       .then(score => attachSameDayPitchFactor(score))
       .then(score => {
-        cachedScores.set(targetUrl, { score, timestamp: Date.now() });
+        if (score && (score.runs > 0 || score.balls > 0 || score.battingTeam)) {
+          cachedScores.set(targetUrl, { score, timestamp: Date.now() });
+        }
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify(score));
       }).catch(err => {
