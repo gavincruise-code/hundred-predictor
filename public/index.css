@@ -301,32 +301,113 @@ body::before {
 
 .input-group__value--purple { color: var(--accent-purple); }
 
-/* Venue Select */
-.select-container {
-  margin-top: 0.5rem;
+/* Match Setup Section */
+.match-setup-section {
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 12px;
+  padding: 1.15rem;
   margin-bottom: 1.5rem;
 }
-.venue-select {
+
+.input-group--compact {
+  margin-bottom: 0;
+}
+
+.teams-matchup-grid {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.vs-divider {
+  font-family: 'Outfit', sans-serif;
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: var(--accent-orange);
+  background: rgba(255, 107, 53, 0.15);
+  border: 1px solid rgba(255, 107, 53, 0.3);
+  border-radius: 50%;
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 1.35rem;
+  box-shadow: 0 0 10px rgba(255, 107, 53, 0.2);
+}
+
+/* Custom Select Dropdowns */
+.select-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  margin-top: 0.35rem;
+}
+
+.custom-select {
   width: 100%;
-  padding: 0.75rem 1rem;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 0.75rem 2.2rem 0.75rem 0.95rem;
+  background: rgba(15, 23, 42, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 8px;
   color: var(--text-primary);
-  font-family: inherit;
-  font-size: 1rem;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 500;
   appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
   cursor: pointer;
   outline: none;
-  transition: border-color var(--transition-fast), background var(--transition-fast);
+  transition: all var(--transition-fast);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  overflow: hidden;
 }
-.venue-select:hover, .venue-select:focus {
-  border-color: rgba(255, 255, 255, 0.3);
+
+.custom-select:hover {
+  border-color: rgba(255, 255, 255, 0.28);
   background: rgba(255, 255, 255, 0.08);
 }
-.venue-select option {
-  background: var(--bg-card);
+
+.custom-select:focus {
+  border-color: var(--accent-teal);
+  box-shadow: 0 0 0 3px rgba(0, 212, 170, 0.15);
+  background: rgba(15, 23, 42, 0.9);
+}
+
+.custom-select--venue {
+  border-left: 3px solid var(--accent-teal);
+}
+
+.custom-select--batting {
+  border-left: 3px solid var(--accent-teal);
+}
+
+.custom-select--bowling {
+  border-left: 3px solid var(--accent-purple);
+}
+
+.select-arrow {
+  position: absolute;
+  right: 0.85rem;
+  pointer-events: none;
+  font-size: 0.65rem;
+  color: var(--text-dim);
+  transition: color var(--transition-fast);
+}
+
+.select-wrapper:hover .select-arrow {
   color: var(--text-primary);
+}
+
+.custom-select option {
+  background: #0f172a;
+  color: var(--text-primary);
+  padding: 0.5rem;
 }
 
 /* Stepper Group */

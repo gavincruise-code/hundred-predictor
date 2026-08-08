@@ -70,39 +70,48 @@
           🏟️ Same-Day Pitch Adjustment: +0%
         </div>
 
-        <!-- Venue Selection -->
-        <div class="input-group">
-          <div class="input-group__header">
-            <span class="input-group__label">Ground</span>
+        <!-- Ground & Teams Match Setup Section -->
+        <div class="match-setup-section">
+          <!-- Ground Selection -->
+          <div class="input-group input-group--compact">
+            <div class="input-group__header">
+              <span class="input-group__label">🏟️ Ground / Venue</span>
+            </div>
+            <div class="select-wrapper">
+              <select id="venue-select" class="venue-select custom-select custom-select--venue">
+                <option value="overall">All Grounds / Overall Average</option>
+              </select>
+              <div class="select-arrow">▼</div>
+            </div>
           </div>
-          <div class="select-container">
-            <select id="venue-select" class="venue-select">
-              <option value="overall">All Grounds / Overall</option>
-            </select>
-          </div>
-        </div>
 
-        <!-- Batting Team Selection -->
-        <div class="input-group">
-          <div class="input-group__header">
-            <span class="input-group__label">Batting Team</span>
-          </div>
-          <div class="select-container">
-            <select id="batting-team-select" class="venue-select">
-              <option value="overall">Unknown / Average</option>
-            </select>
-          </div>
-        </div>
+          <!-- Teams Matchup Grid (Batting vs Bowling) -->
+          <div class="teams-matchup-grid">
+            <div class="input-group input-group--compact">
+              <div class="input-group__header">
+                <span class="input-group__label">🏏 Batting Team</span>
+              </div>
+              <div class="select-wrapper">
+                <select id="batting-team-select" class="venue-select custom-select custom-select--batting">
+                  <option value="overall">Unknown / Average</option>
+                </select>
+                <div class="select-arrow">▼</div>
+              </div>
+            </div>
 
-        <!-- Bowling Team Selection -->
-        <div class="input-group">
-          <div class="input-group__header">
-            <span class="input-group__label">Bowling Team</span>
-          </div>
-          <div class="select-container">
-            <select id="bowling-team-select" class="venue-select">
-              <option value="overall">Unknown / Average</option>
-            </select>
+            <div class="vs-divider">VS</div>
+
+            <div class="input-group input-group--compact">
+              <div class="input-group__header">
+                <span class="input-group__label">🎯 Bowling Team</span>
+              </div>
+              <div class="select-wrapper">
+                <select id="bowling-team-select" class="venue-select custom-select custom-select--bowling">
+                  <option value="overall">Unknown / Average</option>
+                </select>
+                <div class="select-arrow">▼</div>
+              </div>
+            </div>
           </div>
         </div>
 
