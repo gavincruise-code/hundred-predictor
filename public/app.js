@@ -862,10 +862,12 @@ function setupListeners() {
     const uniqueTeams = [...new Set(matchedTeams.map(m => m.team))].slice(0, 2);
 
     if (uniqueTeams.length >= 2) {
-      state.battingTeam = uniqueTeams[0];
-      state.bowlingTeam = uniqueTeams[1];
-      els.battingTeamSelect.value = state.battingTeam;
-      els.bowlingTeamSelect.value = state.bowlingTeam;
+      if (!state.liveSyncEnabled || !state.battingTeam) {
+        state.battingTeam = uniqueTeams[0];
+        state.bowlingTeam = uniqueTeams[1];
+        els.battingTeamSelect.value = state.battingTeam;
+        els.bowlingTeamSelect.value = state.bowlingTeam;
+      }
     }
 
     // 3. Detect venue: check direct ground names or map to Home Team's home venue
@@ -1049,6 +1051,8 @@ function setupListeners() {
     const text = selectedOption ? selectedOption.textContent : '';
 
     if (url) {
+      state.battingTeam = null;
+      state.bowlingTeam = null;
       parseAndApplyMatchUrl(url, text);
       if (state.liveSyncEnabled) {
         fetchAndApplyLiveSync();
