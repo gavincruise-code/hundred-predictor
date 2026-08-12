@@ -307,7 +307,7 @@ async function fetchCricinfoScore(url) {
     battingTeam = uniquePlayingTeams[0] || '';
     bowlingTeam = uniquePlayingTeams[1] || '';
 
-    // 3. Parse Toss Decision if present (e.g., "Spirit chose to field" or "Fire elected to bat")
+    let hasTossDecision = false;
     const tossMatch = matchText.match(/([A-Za-z\s]+)\s+(chose|elected)\s+to\s+(bat|field|bowl)/i);
     if (tossMatch && uniquePlayingTeams.length === 2) {
       const winnerStr = tossMatch[1].toLowerCase();
@@ -315,15 +315,16 @@ async function fetchCricinfoScore(url) {
 
       let winnerIdx = -1;
       for (let i = 0; i < 2; i++) {
-        const tName = uniquePlayingTeams[i].toLowerCase();
-        const firstWord = tName.split(' ')[0];
-        if (winnerStr.includes(firstWord) || winnerStr.includes(tName)) {
+        const teamName = uniquePlayingTeams[i].toLowerCase();
+        const teamWords = teamName.split(' ');
+        if (teamWords.some(w => w.length >= 3 && winnerStr.includes(w))) {
           winnerIdx = i;
           break;
         }
       }
 
       if (winnerIdx !== -1) {
+        hasTossDecision = true;
         if (decision === 'bat') {
           battingTeam = uniquePlayingTeams[winnerIdx];
           bowlingTeam = uniquePlayingTeams[winnerIdx === 0 ? 1 : 0];
@@ -334,9 +335,9 @@ async function fetchCricinfoScore(url) {
       }
     }
 
-    // 4. Match batting team using active scorecard abbreviation (from title or pageData)
+    // 4. Match batting team using active scorecard abbreviation (only if balls > 0 or no toss decision yet)
     const activeAbbrStr = titleActiveAbbr || pageData.battingAbbr || '';
-    if (uniquePlayingTeams.length === 2 && activeAbbrStr) {
+    if (uniquePlayingTeams.length === 2 && activeAbbrStr && (!hasTossDecision || balls > 0)) {
       const cleanAbbr = activeAbbrStr.split('\n')[0].split('-')[0].toLowerCase().trim();
       const alphaAbbr = cleanAbbr.replace(/[^a-z]/g, '');
 
