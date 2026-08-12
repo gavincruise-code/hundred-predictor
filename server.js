@@ -234,9 +234,11 @@ async function fetchCricinfoScore(url) {
         }
       }
 
-      // Determine innings (if there's a target, requirement, innings break, or 1st innings hit 100 balls / 10 wickets)
-      const isFirstInningsComplete = (balls >= 100 || wickets >= 10) && !matchText.match(/target/i) && !matchText.match(/need/i) && !matchText.match(/required/i);
-      if (matchText.match(/target/i) || matchText.match(/need/i) || matchText.match(/required/i) || matchText.match(/req\.?\s*rate/i) || matchText.match(/innings break/i) || isFirstInningsComplete) {
+      // Determine innings (precise cricket target check prevents news headlines like "targets WBBL" from triggering 2nd innings)
+      const hasCricketTarget = /\b(?:target\s*:?\s*\d{1,3}|target\s+of\s+\d{1,3}|t:\s*\d{1,3}|need\s+\d{1,3}\s+runs|required\s+rate|req\.?\s*rate|innings\s+break)\b/i.test(matchText);
+      const isFirstInningsComplete = (balls >= 100 || wickets >= 10) && !hasCricketTarget;
+
+      if (hasCricketTarget || isFirstInningsComplete) {
         innings = '2';
       }
     }
