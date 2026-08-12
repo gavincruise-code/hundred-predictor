@@ -177,51 +177,68 @@ async function fetchCricinfoScore(url) {
       return { text: fullText, title: document.title };
     });
     
-    const text = pageData.text;
+    const fullText = pageData.text;
 
-    if (pageData.title.includes('Access Denied') || text.includes('permission to access')) {
+    if (pageData.title.includes('Access Denied') || fullText.includes('permission to access')) {
       throw new Error('ESPNcricinfo blocked request (403 Access Denied)');
     }
     
+    // Isolate match text by stripping site-wide top navigation header carousel
+    let matchText = fullText;
+    const matchHeaderIndex = fullText.indexOf('Live Cricket Score');
+    if (matchHeaderIndex !== -1) {
+      matchText = fullText.substring(matchHeaderIndex);
+    } else {
+      const matchHeaderIndex2 = fullText.indexOf('The Hundred');
+      if (matchHeaderIndex2 !== -1) matchText = fullText.substring(matchHeaderIndex2);
+    }
+
+    // Check if match is upcoming / unstarted
+    const isUpcoming = matchText.includes('Upcoming') || 
+                       matchText.match(/Today,\s*\d{1,2}:\d{2}/i) || 
+                       matchText.match(/Match starts at/i) || 
+                       !pageData.title.match(/^\w{2,5}-\w?\s*\d{1,3}\/\d{1,2}/);
+
     let runs = 0;
     let wickets = 0;
     let balls = 0;
     let innings = '1';
     
-    // Basic heuristics to parse the text. Negative lookahead prevents "31/100 balls" from being parsed as score.
-    const scoreMatch = text.match(/(\d{1,3})\/(\d{1,2})(?!\d*\s*balls?)/);
-    if (scoreMatch) {
-      runs = parseInt(scoreMatch[1], 10);
-      wickets = parseInt(scoreMatch[2], 10);
-    } else {
-      const allOutMatch = text.match(/(\d{1,3})\s*all\s*out/i);
-      if (allOutMatch) {
-        runs = parseInt(allOutMatch[1], 10);
-        wickets = 10;
-      }
-    }
-    
-    // Balls matching
-    const hundredBallsMatch = text.match(/\((\d{1,3})\/\d{1,3}\s*balls?/i);
-    if (hundredBallsMatch) {
-      balls = parseInt(hundredBallsMatch[1], 10);
-    } else {
-      const ballsMatch = text.match(/(?:(?:cb:\s*)?(\d{1,3})b)|(?:(\d{1,3})\s*balls?)/i);
-      if (ballsMatch) {
-        balls = parseInt(ballsMatch[1] || ballsMatch[2], 10);
+    if (!isUpcoming) {
+      // Basic heuristics to parse the text. Negative lookahead prevents "31/100 balls" from being parsed as score.
+      const scoreMatch = matchText.match(/(\d{1,3})\/(\d{1,2})(?!\d*\s*balls?)/);
+      if (scoreMatch) {
+        runs = parseInt(scoreMatch[1], 10);
+        wickets = parseInt(scoreMatch[2], 10);
       } else {
-        const ovMatch = text.match(/(\d{1,2})\.(\d{1})\s*ov/i);
-        if (ovMatch) {
-          // Assume 5 ball overs for The Hundred
-          balls = (parseInt(ovMatch[1], 10) * 5) + parseInt(ovMatch[2], 10);
+        const allOutMatch = matchText.match(/(\d{1,3})\s*all\s*out/i);
+        if (allOutMatch) {
+          runs = parseInt(allOutMatch[1], 10);
+          wickets = 10;
         }
       }
-    }
+      
+      // Balls matching
+      const hundredBallsMatch = matchText.match(/\((\d{1,3})\/\d{1,3}\s*balls?/i);
+      if (hundredBallsMatch) {
+        balls = parseInt(hundredBallsMatch[1], 10);
+      } else {
+        const ballsMatch = matchText.match(/(?:(?:cb:\s*)?(\d{1,3})b)|(?:(\d{1,3})\s*balls?)/i);
+        if (ballsMatch) {
+          balls = parseInt(ballsMatch[1] || ballsMatch[2], 10);
+        } else {
+          const ovMatch = matchText.match(/(\d{1,2})\.(\d{1})\s*ov/i);
+          if (ovMatch) {
+            balls = (parseInt(ovMatch[1], 10) * 5) + parseInt(ovMatch[2], 10);
+          }
+        }
+      }
 
-    // Determine innings (if there's a target, requirement, innings break, or 1st innings hit 100 balls / 10 wickets)
-    const isFirstInningsComplete = (balls >= 100 || wickets >= 10) && !text.match(/target/i) && !text.match(/need/i) && !text.match(/required/i);
-    if (text.match(/target/i) || text.match(/need/i) || text.match(/required/i) || text.match(/req\.?\s*rate/i) || text.match(/innings break/i) || isFirstInningsComplete) {
-      innings = '2';
+      // Determine innings (if there's a target, requirement, innings break, or 1st innings hit 100 balls / 10 wickets)
+      const isFirstInningsComplete = (balls >= 100 || wickets >= 10) && !matchText.match(/target/i) && !matchText.match(/need/i) && !matchText.match(/required/i);
+      if (matchText.match(/target/i) || matchText.match(/need/i) || matchText.match(/required/i) || matchText.match(/req\.?\s*rate/i) || matchText.match(/innings break/i) || isFirstInningsComplete) {
+        innings = '2';
+      }
     }
 
     // --- Intelligent Auto-Selector Logic ---
@@ -340,7 +357,7 @@ async function fetchCricinfoScore(url) {
     // Detect gender from URL
     const gender = urlLower.includes('-women') ? 'womens' : 'mens';
 
-    return { runs, wickets, balls, innings, gender, battingTeam, bowlingTeam, venue, _rawText: text.substring(0, 150) };
+    return { runs, wickets, balls, innings, gender, battingTeam, bowlingTeam, venue, _rawText: matchText.substring(0, 150) };
   } finally {
     await browser.close();
   }
