@@ -397,32 +397,40 @@ async function getLiveMatchesWithFallback() {
     return cachedMatchesList;
   }
 
+  let scraped = [];
   try {
-    const scraped = await fetchLiveMatches();
-    if (scraped && scraped.length > 0) {
-      cachedMatchesList = scraped;
-      lastMatchesFetchTime = now;
-      return scraped;
-    }
+    scraped = (await fetchLiveMatches().catch(() => [])) || [];
   } catch (err) {
-    console.error('Puppeteer match list scrape error, loading fallback schedule:', err.message);
+    console.error('Puppeteer match list scrape error:', err.message);
   }
 
+  let fallback = [];
   try {
     const fallbackPath = path.join(__dirname, 'fixtures_fallback.json');
     if (fs.existsSync(fallbackPath)) {
-      const data = JSON.parse(fs.readFileSync(fallbackPath, 'utf8'));
-      if (data && data.length > 0) {
-        cachedMatchesList = data;
-        lastMatchesFetchTime = now;
-        return data;
-      }
+      fallback = JSON.parse(fs.readFileSync(fallbackPath, 'utf8')) || [];
     }
   } catch (e) {
     console.error('Error reading fixtures_fallback.json:', e.message);
   }
 
-  return [];
+  const combined = [...scraped, ...fallback];
+  const unique = [];
+  const seen = new Set();
+
+  combined.forEach(m => {
+    if (m && m.url && !seen.has(m.url)) {
+      seen.add(m.url);
+      unique.push(m);
+    }
+  });
+
+  if (unique.length > 0) {
+    cachedMatchesList = unique;
+    lastMatchesFetchTime = now;
+  }
+
+  return unique;
 }
 
 const server = http.createServer((req, res) => {
