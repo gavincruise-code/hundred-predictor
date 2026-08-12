@@ -171,10 +171,12 @@ async function fetchCricinfoScore(url) {
     // Give it a second to load React data
     await new Promise(r => setTimeout(r, 1000));
     
-    // Extract text from the page (combining document.title and body text)
+    // Extract page data and match header blocks
     const pageData = await page.evaluate(() => {
       const fullText = (document.title || '') + '\n' + (document.body ? document.body.innerText : '');
-      return { text: fullText, title: document.title };
+      const matchHeaderBlocks = Array.from(document.querySelectorAll('.ci-team-score')).map(el => el.innerText.trim());
+      const mainBlocks = matchHeaderBlocks.slice(-2);
+      return { text: fullText, title: document.title, mainBlocks };
     });
     
     const fullText = pageData.text;
@@ -197,45 +199,44 @@ async function fetchCricinfoScore(url) {
     const isUpcoming = matchText.includes('Upcoming') || 
                        matchText.match(/Today,\s*\d{1,2}:\d{2}/i) || 
                        matchText.match(/Match starts at/i) || 
-                       !pageData.title.match(/^\w{2,5}-\w?\s*\d{1,3}\/\d{1,2}/);
+                       (!pageData.title.match(/^\w{2,5}-\w?\s*\d{1,3}\/\d{1,2}/) && !matchText.match(/\d{1,3}\/\d{1,2}/));
 
     let runs = 0;
     let wickets = 0;
     let balls = 0;
     let innings = '1';
+    let titleActiveAbbr = '';
     
     if (!isUpcoming) {
-      // Basic heuristics to parse the text. Negative lookahead prevents "31/100 balls" from being parsed as score.
-      const scoreMatch = matchText.match(/(\d{1,3})\/(\d{1,2})(?!\d*\s*balls?)/);
-      if (scoreMatch) {
-        runs = parseInt(scoreMatch[1], 10);
-        wickets = parseInt(scoreMatch[2], 10);
-      } else {
-        const allOutMatch = matchText.match(/(\d{1,3})\s*all\s*out/i);
-        if (allOutMatch) {
-          runs = parseInt(allOutMatch[1], 10);
-          wickets = 10;
+      // 1. Try parsing active score from document.title first (e.g. "LS-W 44/4 (33 balls...")
+      const titleScoreMatch = pageData.title.match(/^([A-Za-z\-]+)\s+(\d{1,3})\/(\d{1,2})\s*\((?:(\d{1,3})\s*balls|(\d{1,2})\.(\d{1})\s*ov)/i);
+      if (titleScoreMatch) {
+        titleActiveAbbr = titleScoreMatch[1];
+        runs = parseInt(titleScoreMatch[2], 10);
+        wickets = parseInt(titleScoreMatch[3], 10);
+        if (titleScoreMatch[4]) {
+          balls = parseInt(titleScoreMatch[4], 10);
+        } else if (titleScoreMatch[5]) {
+          balls = parseInt(titleScoreMatch[5], 10) * 5 + parseInt(titleScoreMatch[6], 10);
         }
-      }
-      
-      // Balls matching
-      const hundredBallsMatch = matchText.match(/\((\d{1,3})\/\d{1,3}\s*balls?/i);
-      if (hundredBallsMatch) {
-        balls = parseInt(hundredBallsMatch[1], 10);
       } else {
-        const ballsMatch = matchText.match(/(?:(?:cb:\s*)?(\d{1,3})b)|(?:(\d{1,3})\s*balls?)/i);
-        if (ballsMatch) {
-          balls = parseInt(ballsMatch[1] || ballsMatch[2], 10);
-        } else {
-          const ovMatch = matchText.match(/(\d{1,2})\.(\d{1})\s*ov/i);
-          if (ovMatch) {
-            balls = (parseInt(ovMatch[1], 10) * 5) + parseInt(ovMatch[2], 10);
-          }
+        // Fallback to matchText regex
+        const scoreMatch = matchText.match(/(\d{1,3})\/(\d{1,2})(?!\d*\s*balls?)/);
+        if (scoreMatch) {
+          runs = parseInt(scoreMatch[1], 10);
+          wickets = parseInt(scoreMatch[2], 10);
+        }
+        
+        const hundredBallsMatch = matchText.match(/\((\d{1,3})\/\d{1,3}\s*balls?/i);
+        if (hundredBallsMatch) {
+          balls = parseInt(hundredBallsMatch[1], 10);
         }
       }
 
-      // Determine innings (precise cricket target check prevents news headlines like "targets WBBL" from triggering 2nd innings)
-      const hasCricketTarget = /\b(?:target\s*:?\s*\d{1,3}|target\s+of\s+\d{1,3}|t:\s*\d{1,3}|need\s+\d{1,3}\s+runs|required\s+rate|req\.?\s*rate|innings\s+break)\b/i.test(matchText);
+      // Determine innings (precise cricket target check)
+      const hasCricketTarget = pageData.mainBlocks.some(b => b.includes('T:') || b.includes('target') || b.includes('need')) || 
+                               /\b(?:target\s*:?\s*\d{1,3}|target\s+of\s+\d{1,3}|t:\s*\d{1,3}|need\s+\d{1,3}\s+runs|required\s+rate|req\.?\s*rate|innings\s+break)\b/i.test(matchText);
+      
       const isFirstInningsComplete = (balls >= 100 || wickets >= 10) && !hasCricketTarget;
 
       if (hasCricketTarget || isFirstInningsComplete) {
@@ -333,9 +334,10 @@ async function fetchCricinfoScore(url) {
       }
     }
 
-    // 4. Match batting team using active scorecard abbreviations if play has started
-    if (uniquePlayingTeams.length === 2 && pageData.battingAbbr) {
-      const cleanAbbr = pageData.battingAbbr.split('\n')[0].split('-')[0].toLowerCase().trim();
+    // 4. Match batting team using active scorecard abbreviation (from title or pageData)
+    const activeAbbrStr = titleActiveAbbr || pageData.battingAbbr || '';
+    if (uniquePlayingTeams.length === 2 && activeAbbrStr) {
+      const cleanAbbr = activeAbbrStr.split('\n')[0].split('-')[0].toLowerCase().trim();
       const alphaAbbr = cleanAbbr.replace(/[^a-z]/g, '');
 
       let matchedIdx = -1;
@@ -364,16 +366,8 @@ async function fetchCricinfoScore(url) {
       }
 
       if (matchedIdx !== -1 && bestScore > 0) {
-        if (isFirstInningsComplete) {
-          battingTeam = uniquePlayingTeams[matchedIdx === 0 ? 1 : 0];
-          bowlingTeam = uniquePlayingTeams[matchedIdx];
-          runs = 0;
-          wickets = 0;
-          balls = 0;
-        } else {
-          battingTeam = uniquePlayingTeams[matchedIdx];
-          bowlingTeam = uniquePlayingTeams[matchedIdx === 0 ? 1 : 0];
-        }
+        battingTeam = uniquePlayingTeams[matchedIdx];
+        bowlingTeam = uniquePlayingTeams[matchedIdx === 0 ? 1 : 0];
       }
     }
 
