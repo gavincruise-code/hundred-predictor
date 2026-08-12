@@ -71,6 +71,9 @@ function cacheElements() {
   els.liveMatchSelect = $('#live-match-select');
   els.refreshMatchesBtn = $('#refresh-matches-btn');
   els.pitchBadge = $('#pitch-badge');
+  els.womensPitchRow = $('#womens-pitch-input-row');
+  els.womensPitchInput = $('#womens-pitch-input');
+  els.womensPitchStatus = $('#womens-pitch-status');
   els.battingTeamSelect = $('#batting-team-select');
   els.bowlingTeamSelect = $('#bowling-team-select');
   els.inputGroups = document.querySelectorAll('#inputs-card .input-group');
@@ -195,10 +198,38 @@ function predict(balls, wickets, currentRuns, venue = null) {
     return null;
   }
 
-  // Apply Team Strength Multipliers & Same-Day Pitch Factor
+  // Apply Team Strength Multipliers & Same-Day Pitch Factor (from Women's match earlier)
   let batMultiplier = 1.0;
   let bowlMultiplier = 1.0;
-  let pitchFactor = (state.gender === 'mens' && state.sameDayPitchFactor) ? state.sameDayPitchFactor : 1.0;
+  let pitchFactor = 1.0;
+
+  if (state.gender === 'mens') {
+    if (els.womensPitchRow) els.womensPitchRow.style.display = 'flex';
+    
+    let womensScore = null;
+    if (els.womensPitchInput && els.womensPitchInput.value) {
+      womensScore = parseFloat(els.womensPitchInput.value);
+    } else if (state.womensScoreObserved) {
+      womensScore = state.womensScoreObserved;
+    }
+
+    if (womensScore && womensScore > 0) {
+      const womensModel = state.modelWomens?.['1'];
+      const baseline = womensModel?.venues?.[state.venue]?.summary?.avg_score || womensModel?.overall?.summary?.avg_score || 127.5;
+      let ratio = womensScore / baseline;
+      pitchFactor = Math.max(0.80, Math.min(1.25, ratio));
+      
+      const pct = Math.round((pitchFactor - 1.0) * 100);
+      const sign = pct >= 0 ? '+' : '';
+      if (els.womensPitchStatus) {
+        els.womensPitchStatus.textContent = `${sign}${pct}% pitch factor (${womensScore} vs ${Math.round(baseline)} avg)`;
+      }
+    } else {
+      if (els.womensPitchStatus) els.womensPitchStatus.textContent = '';
+    }
+  } else {
+    if (els.womensPitchRow) els.womensPitchRow.style.display = 'none';
+  }
 
   if (state.battingTeam !== 'overall' && state.model.team_ratings && state.model.team_ratings[state.battingTeam]) {
     batMultiplier = state.model.team_ratings[state.battingTeam].batting;
@@ -1017,9 +1048,11 @@ function setupListeners() {
     }
   });
 
-  els.refreshMatchesBtn.addEventListener('click', () => {
-    fetchMatchList();
-  });
+  if (els.womensPitchInput) {
+    els.womensPitchInput.addEventListener('input', () => {
+      updatePrediction();
+    });
+  }
 
   // Fetch match list on initial load
   fetchMatchList();

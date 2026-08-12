@@ -85,6 +85,15 @@
             </div>
           </div>
 
+          <!-- Optional Women's Game Score Earlier Today (For Men's Matches) -->
+          <div class="setup-row" id="womens-pitch-input-row" style="display: none;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <label class="setup-label">👧 Women's Score Earlier Today (Pitch Condition)</label>
+              <span id="womens-pitch-status" style="font-size: 0.75rem; color: #60a5fa; font-weight: 500;"></span>
+            </div>
+            <input type="number" id="womens-pitch-input" min="0" max="250" placeholder="e.g. 145 (Leave blank for average pitch)" style="width: 100%; height: 38px; padding: 0 0.85rem; background: rgba(15, 23, 42, 0.85); border: 1px solid rgba(255, 255, 255, 0.14); border-radius: 8px; color: white; font-family: 'Inter', sans-serif; font-size: 0.85rem; outline: none;">
+          </div>
+
           <!-- Teams Matchup Grid (Batting vs Bowling) -->
           <div class="setup-teams-container">
             <div class="setup-team-box">
