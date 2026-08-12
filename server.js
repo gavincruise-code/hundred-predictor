@@ -252,22 +252,25 @@ async function fetchCricinfoScore(url) {
       'MI London', 'London Spirit', 'Trent Rockets', 'Welsh Fire'
     ];
 
-    // 1. Identify the two playing teams from the URL (Team A = Home, Team B = Away)
+    // 1. Identify the two playing teams from the URL (ordered by appearance in URL)
     const playingTeams = [];
     for (const t of validTeams) {
       const slug = t.toLowerCase().replace(/\s+/g, '-');
       const firstWord = t.toLowerCase().split(' ')[0];
-      const inUrl = urlLower.includes(slug) || urlLower.includes(firstWord);
-      if (inUrl) {
+      
+      let pos = urlLower.indexOf(slug);
+      if (pos === -1) pos = urlLower.indexOf(firstWord);
+      if (pos !== -1) {
         // Avoid false matches: 'london' matches both MI London and London Spirit
         if (t === 'London Spirit' && !urlLower.includes('spirit')) continue;
         if (t === 'MI London' && !urlLower.includes('mi-london')) continue;
-        playingTeams.push(t);
+        playingTeams.push({ team: t, pos });
       }
     }
     
-    // Deduplicate and take first two
-    const uniquePlayingTeams = [...new Set(playingTeams)].slice(0, 2);
+    // Sort by position in URL string (Team A = Home, Team B = Away)
+    playingTeams.sort((a, b) => a.pos - b.pos);
+    const uniquePlayingTeams = [...new Set(playingTeams.map(p => p.team))].slice(0, 2);
 
     // 2. Identify venue — check actual ground names in title/text first, else map to Home Team's ground
     const teamHomeVenues = {
@@ -297,7 +300,38 @@ async function fetchCricinfoScore(url) {
       venue = teamHomeVenues[uniquePlayingTeams[0]];
     }
 
-    // 3. Match batting team using word matches, nicknames, and initials
+    // Default batting / bowling teams from URL order
+    battingTeam = uniquePlayingTeams[0] || '';
+    bowlingTeam = uniquePlayingTeams[1] || '';
+
+    // 3. Parse Toss Decision if present (e.g., "Spirit chose to field" or "Fire elected to bat")
+    const tossMatch = matchText.match(/([A-Za-z\s]+)\s+(chose|elected)\s+to\s+(bat|field|bowl)/i);
+    if (tossMatch && uniquePlayingTeams.length === 2) {
+      const winnerStr = tossMatch[1].toLowerCase();
+      const decision = tossMatch[3].toLowerCase();
+
+      let winnerIdx = -1;
+      for (let i = 0; i < 2; i++) {
+        const tName = uniquePlayingTeams[i].toLowerCase();
+        const firstWord = tName.split(' ')[0];
+        if (winnerStr.includes(firstWord) || winnerStr.includes(tName)) {
+          winnerIdx = i;
+          break;
+        }
+      }
+
+      if (winnerIdx !== -1) {
+        if (decision === 'bat') {
+          battingTeam = uniquePlayingTeams[winnerIdx];
+          bowlingTeam = uniquePlayingTeams[winnerIdx === 0 ? 1 : 0];
+        } else {
+          battingTeam = uniquePlayingTeams[winnerIdx === 0 ? 1 : 0];
+          bowlingTeam = uniquePlayingTeams[winnerIdx];
+        }
+      }
+    }
+
+    // 4. Match batting team using active scorecard abbreviations if play has started
     if (uniquePlayingTeams.length === 2 && pageData.battingAbbr) {
       const cleanAbbr = pageData.battingAbbr.split('\n')[0].split('-')[0].toLowerCase().trim();
       const alphaAbbr = cleanAbbr.replace(/[^a-z]/g, '');
@@ -313,16 +347,11 @@ async function fetchCricinfoScore(url) {
 
         let score = 0;
 
-        // 1. Direct word or substring match (e.g., "Fire", "Super Giants", "Phoenix")
         if (cleanAbbr.length >= 3 && (teamLower.includes(cleanAbbr) || teamWords.some(w => w === cleanAbbr))) {
           score = 100;
-        }
-        // 2. Exact initials match (e.g., "WF", "MSG", "BP", "LS")
-        else if (alphaAbbr.length > 0 && alphaAbbr === initials) {
+        } else if (alphaAbbr.length > 0 && alphaAbbr === initials) {
           score = 80;
-        }
-        // 3. Prefix initials match
-        else if (alphaAbbr.length > 0 && initials.startsWith(alphaAbbr)) {
+        } else if (alphaAbbr.length > 0 && initials.startsWith(alphaAbbr)) {
           score = 50;
         }
 
@@ -333,8 +362,6 @@ async function fetchCricinfoScore(url) {
       }
 
       if (matchedIdx !== -1 && bestScore > 0) {
-        // If 1st innings is complete but Cricinfo is still showing 1st innings batting team,
-        // swap the teams for 2nd innings chase
         if (isFirstInningsComplete) {
           battingTeam = uniquePlayingTeams[matchedIdx === 0 ? 1 : 0];
           bowlingTeam = uniquePlayingTeams[matchedIdx];
@@ -345,13 +372,7 @@ async function fetchCricinfoScore(url) {
           battingTeam = uniquePlayingTeams[matchedIdx];
           bowlingTeam = uniquePlayingTeams[matchedIdx === 0 ? 1 : 0];
         }
-      } else {
-        battingTeam = uniquePlayingTeams[0];
-        bowlingTeam = uniquePlayingTeams[1];
       }
-    } else if (uniquePlayingTeams.length === 2) {
-      battingTeam = uniquePlayingTeams[0];
-      bowlingTeam = uniquePlayingTeams[1];
     }
 
     // Detect gender from URL

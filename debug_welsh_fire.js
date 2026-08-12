@@ -61,36 +61,76 @@ async function debugWelshFire() {
       if (matchHeaderIndex2 !== -1) matchText = text.substring(matchHeaderIndex2);
     }
 
-    console.log("\nIsolated Match Text (first 500 chars):");
-    console.log(matchText.substring(0, 500));
+    // 1. Team ordering by position in URL/text
+    const validTeams = [
+      'Birmingham Phoenix', 'Southern Brave', 'Sunrisers Leeds', 'Manchester Super Giants', 
+      'MI London', 'London Spirit', 'Trent Rockets', 'Welsh Fire'
+    ];
+    const urlLower = url.toLowerCase();
+    const textLower = matchText.toLowerCase();
 
-    // Check if match is upcoming / unstarted
-    const isUpcoming = matchText.includes('Upcoming') || 
-                       matchText.match(/Today,\s*\d{1,2}:\d{2}/i) || 
-                       matchText.match(/Match starts at/i) || 
-                       !pageData.title.match(/^\w{2,5}-\w?\s*\d{1,3}\/\d{1,2}/); // Title doesn't start with "WF-W 69/4"
+    const matchedTeams = [];
+    for (const t of validTeams) {
+      const slug = t.toLowerCase().replace(/\s+/g, '-');
+      const firstWord = t.toLowerCase().split(' ')[0];
+      
+      let pos = urlLower.indexOf(slug);
+      if (pos === -1) pos = urlLower.indexOf(firstWord);
+      if (pos === -1) pos = textLower.indexOf(t.toLowerCase());
+      if (pos === -1) pos = textLower.indexOf(firstWord);
 
-    console.log("\nIs Upcoming / Unstarted Match?:", isUpcoming);
-
-    let runs = 0, wickets = 0, balls = 0, innings = '1';
-
-    if (!isUpcoming) {
-      // 1. Score matching (e.g. 69/4 or 162/2)
-      const scoreMatch = matchText.match(/(\d{1,3})\/(\d{1,2})(?!\d*\s*balls?)/);
-      if (scoreMatch) {
-        runs = parseInt(scoreMatch[1], 10);
-        wickets = parseInt(scoreMatch[2], 10);
-      }
-
-      // 2. Balls matching (e.g. 60 balls or 60/100 balls)
-      const ballsMatch = matchText.match(/\((\d{1,3})(?:\/100)?\s*balls?\)/i) || matchText.match(/(\d{1,3})\s*balls/i);
-      if (ballsMatch) {
-        balls = parseInt(ballsMatch[1], 10);
+      if (pos !== -1) {
+        if (t === 'London Spirit' && !urlLower.includes('spirit') && !textLower.includes('spirit')) continue;
+        if (t === 'MI London' && !urlLower.includes('mi-london') && !textLower.includes('mi london')) continue;
+        matchedTeams.push({ team: t, pos });
       }
     }
 
-    console.log("\nFINAL PARSED RESULT FOR APP:");
-    console.log({ runs, wickets, balls, innings, isUpcoming });
+    // Sort by position in URL/text
+    matchedTeams.sort((a, b) => a.pos - b.pos);
+    const uniquePlayingTeams = [...new Set(matchedTeams.map(m => m.team))].slice(0, 2);
+
+    console.log("\nOrdered playing teams from URL:");
+    console.log(uniquePlayingTeams);
+
+    // 2. Toss parsing logic
+    let battingTeam = uniquePlayingTeams[0];
+    let bowlingTeam = uniquePlayingTeams[1];
+
+    const tossMatch = matchText.match(/([A-Za-z\s]+)\s+(chose|elected)\s+to\s+(bat|field|bowl)/i);
+    if (tossMatch) {
+      const winnerStr = tossMatch[1].toLowerCase();
+      const decision = tossMatch[3].toLowerCase();
+      console.log(`\nTOSS DETECTED: Winner = "${tossMatch[1].trim()}", Decision = "${decision}"`);
+
+      let winnerIdx = -1;
+      for (let i = 0; i < uniquePlayingTeams.length; i++) {
+        const tName = uniquePlayingTeams[i].toLowerCase();
+        const firstWord = tName.split(' ')[0];
+        if (winnerStr.includes(firstWord) || winnerStr.includes(tName)) {
+          winnerIdx = i;
+          break;
+        }
+      }
+
+      if (winnerIdx !== -1) {
+        if (decision === 'bat') {
+          battingTeam = uniquePlayingTeams[winnerIdx];
+          bowlingTeam = uniquePlayingTeams[winnerIdx === 0 ? 1 : 0];
+        } else {
+          battingTeam = uniquePlayingTeams[winnerIdx === 0 ? 1 : 0];
+          bowlingTeam = uniquePlayingTeams[winnerIdx];
+        }
+      }
+    }
+
+    console.log("\nPARSED MATCH STATE:");
+    console.log({
+      battingTeam,
+      bowlingTeam,
+      homeTeam: uniquePlayingTeams[0],
+      venue: uniquePlayingTeams[0] === 'Welsh Fire' ? 'Sophia Gardens, Cardiff' : 'Lord\'s, London'
+    });
   } catch (err) {
     console.error("Error:", err.message);
   } finally {

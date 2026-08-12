@@ -845,13 +845,21 @@ function setupListeners() {
     for (const t of validTeams) {
       const slug = t.toLowerCase().replace(/\s+/g, '-');
       const firstWord = t.toLowerCase().split(' ')[0];
-      if (urlLower.includes(slug) || urlLower.includes(firstWord) || textLower.includes(t.toLowerCase())) {
+
+      let pos = urlLower.indexOf(slug);
+      if (pos === -1) pos = urlLower.indexOf(firstWord);
+      if (pos === -1) pos = textLower.indexOf(t.toLowerCase());
+      if (pos === -1) pos = textLower.indexOf(firstWord);
+
+      if (pos !== -1) {
         if (t === 'London Spirit' && !urlLower.includes('spirit') && !textLower.includes('spirit')) continue;
         if (t === 'MI London' && !urlLower.includes('mi-london') && !textLower.includes('mi london')) continue;
-        matchedTeams.push(t);
+        matchedTeams.push({ team: t, pos });
       }
     }
-    const uniqueTeams = [...new Set(matchedTeams)].slice(0, 2);
+
+    matchedTeams.sort((a, b) => a.pos - b.pos);
+    const uniqueTeams = [...new Set(matchedTeams.map(m => m.team))].slice(0, 2);
 
     if (uniqueTeams.length >= 2) {
       state.battingTeam = uniqueTeams[0];
